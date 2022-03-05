@@ -88,7 +88,7 @@ flags.DEFINE_string(
     'Split for evaluation.')
 
 flags.DEFINE_string(
-    'dataset', 'mvtec',
+    'dataset', 'mvtech',
     'Name of a dataset.')
 
 flags.DEFINE_bool(

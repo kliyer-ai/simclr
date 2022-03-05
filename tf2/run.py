@@ -84,11 +84,11 @@ flags.DEFINE_integer(
     'checkpoint_epochs.')
 
 flags.DEFINE_string(
-    'eval_split', 'validation',
+    'eval_split', 'test',
     'Split for evaluation.')
 
 flags.DEFINE_string(
-    'dataset', 'imagenet2012',
+    'dataset', 'mvtec',
     'Name of a dataset.')
 
 flags.DEFINE_bool(
@@ -137,7 +137,7 @@ flags.DEFINE_string(
     'Directory where dataset is stored.')
 
 flags.DEFINE_bool(
-    'use_tpu', True,
+    'use_tpu', False,
     'Whether to run on TPU.')
 
 flags.DEFINE_string(
@@ -247,7 +247,7 @@ flags.DEFINE_boolean(
 )
 
 flags.DEFINE_float(
-    'min_fraction_anomalies', 1.0,
+    'min_fraction_anomalies', 0.7,
     'Minimum fraction of images with anomalies to be included in the training. '
     'Is not considered when use_all_data False.'
 )

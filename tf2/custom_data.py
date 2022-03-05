@@ -64,13 +64,9 @@ class StandardBuilder():
     def prepare_dataset(self, train_df, test_df):
         logging.info('train images %d', train_df.shape[0])
         logging.info('test images %d', test_df.shape[0])
-        
-        train_paths = [os.path.join(self.path, file_name) for file_name in train_df.index.values]
-        test_paths = [os.path.join(self.path, file_name) for file_name in test_df.index.values]
 
-        # use filename as index
-        train_ds = tf.data.Dataset.from_tensor_slices(list(zip(train_paths, train_df.lbl)))
-        test_ds = tf.data.Dataset.from_tensor_slices(list(zip(test_paths, test_df.lbl)))
+        train_ds = tf.data.Dataset.from_tensor_slices(list(zip(train_df.index.values, train_df.lbl)))
+        test_ds = tf.data.Dataset.from_tensor_slices(list(zip(test_df.index.values, test_df.lbl)))
 
         info = Map({
             'splits': Map({

@@ -64,13 +64,9 @@ class StandardBuilder():
     def prepare_dataset(self, train_df, test_df):
         logging.info('train images %d', train_df.shape[0])
         logging.info('test images %d', test_df.shape[0])
-        
-        train_paths = [os.path.join(self.path, file_name) for file_name in train_df.index.values]
-        test_paths = [os.path.join(self.path, file_name) for file_name in test_df.index.values]
 
-        # use filename as index
-        train_ds = tf.data.Dataset.from_tensor_slices(list(zip(train_paths, train_df.lbl)))
-        test_ds = tf.data.Dataset.from_tensor_slices(list(zip(test_paths, test_df.lbl)))
+        train_ds = tf.data.Dataset.from_tensor_slices(list(zip(train_df.index.values, train_df.lbl)))
+        test_ds = tf.data.Dataset.from_tensor_slices(list(zip(test_df.index.values, test_df.lbl)))
 
         info = Map({
             'splits': Map({
@@ -111,7 +107,10 @@ class MVTechBuilder(StandardBuilder):
         super().__init__(**kwargs)
         print(kwargs)
         self.dataset = dataset
-        self.path = os.path.join(data_dir, '*')
+        if kwargs["categories"] != None:
+            self.path = [os.path.join(data_dir, cat) for cat in kwargs["categories"]]
+        else:
+            self.path = os.path.join(data_dir, '*')
 
     def download_and_prepare(self):
         self._load_mvtech_dataset()
@@ -159,9 +158,15 @@ class MVTechBuilder(StandardBuilder):
         return dataset.map(process, num_parallel_calls=AUTOTUNE)
 
     def _load_mvtech_dataset(self):
-
-        neg_files = glob(os.path.join(self.path, 'train', 'good', '*.png'))
-        pos_files = glob(os.path.join(self.path, 'test', '*', '*.png'))
+        if type(self.path) == list:
+            neg_files = []
+            pos_files = []
+            for path_cat in self.path:
+                neg_files += glob(os.path.join(path_cat, 'train', 'good', '*.png'))
+                pos_files += glob(os.path.join(path_cat, 'test', '*', '*.png'))
+        else:
+            neg_files = glob(os.path.join(self.path, 'train', 'good', '*.png'))
+            pos_files = glob(os.path.join(self.path, 'test', '*', '*.png'))
 
         neg_df = pd.DataFrame(data={'lbl': ['good'] * len(neg_files)}, index=neg_files)
         pos_df = pd.DataFrame(data={'lbl': ['bad'] * len(pos_files)}, index=pos_files)

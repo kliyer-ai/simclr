@@ -84,11 +84,11 @@ flags.DEFINE_integer(
     'checkpoint_epochs.')
 
 flags.DEFINE_string(
-    'eval_split', 'validation',
+    'eval_split', 'test',
     'Split for evaluation.')
 
 flags.DEFINE_string(
-    'dataset', 'imagenet2012',
+    'dataset', 'mvtech',
     'Name of a dataset.')
 
 flags.DEFINE_bool(
@@ -137,7 +137,7 @@ flags.DEFINE_string(
     'Directory where dataset is stored.')
 
 flags.DEFINE_bool(
-    'use_tpu', True,
+    'use_tpu', False,
     'Whether to run on TPU.')
 
 flags.DEFINE_string(
@@ -247,7 +247,7 @@ flags.DEFINE_boolean(
 )
 
 flags.DEFINE_float(
-    'min_fraction_anomalies', 1.0,
+    'min_fraction_anomalies', 0.7,
     'Minimum fraction of images with anomalies to be included in the training. '
     'Is not considered when use_all_data False.'
 )
@@ -270,6 +270,11 @@ flags.DEFINE_bool(
 flags.DEFINE_list(
     'gpus', None,
     'Specify GPUs to run the model on.'
+)
+
+flags.DEFINE_list(
+    'categories', None,
+    'Specify mvtec dataset categories to run the model on.'
 )
 
 
@@ -520,7 +525,8 @@ def main(argv):
                          results_dir=FLAGS.model_dir + '_' + FLAGS.run_id,
                          use_all_data=FLAGS.use_all_data,
                          train_test_ratio=FLAGS.train_test_ratio,
-                         min_fraction_anomalies=FLAGS.min_fraction_anomalies)
+                         min_fraction_anomalies=FLAGS.min_fraction_anomalies,
+                         categories=FLAGS.categories)
 
     builder.download_and_prepare()
     num_train_examples = builder.info.splits[FLAGS.train_split].num_examples

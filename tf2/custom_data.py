@@ -129,7 +129,7 @@ class MVTechBuilder(StandardBuilder):
             # Convert the path to a list of path components
             # parts = tf.strings.split(file_path, os.path.sep)
             # The second to last is the class-directory
-            l = status != 'good'
+            l = status != 'IO'
             # Integer encode the label
             return int(l)  # tf.argmax(one_hot)
 
@@ -166,12 +166,12 @@ class MVTechBuilder(StandardBuilder):
             pos_files += glob(os.path.join(path_cat, 'test', '*', '*.png'))
             pos_files = [p for p in pos_files if 'good' not in p] # exclude all anomalies
 
-        neg_df = pd.DataFrame(data={'lbl': ['good'] * len(neg_files)}, index=neg_files)
-        pos_df = pd.DataFrame(data={'lbl': ['bad'] * len(pos_files)}, index=pos_files)
+        neg_df = pd.DataFrame(data={'lbl': ['IO'] * len(neg_files)}, index=neg_files)
+        pos_df = pd.DataFrame(data={'lbl': ['NIO'] * len(pos_files)}, index=pos_files)
 
         df = pd.concat([neg_df, pos_df])
-        neg_mask = df.lbl.values == 'good'
-        pos_mask = df.lbl.values == 'bad'
+        neg_mask = df.lbl.values == 'IO'
+        pos_mask = df.lbl.values == 'NIO'
 
         train_df, test_df = self.split_data_set(df, neg_mask, pos_mask)
 

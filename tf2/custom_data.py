@@ -162,7 +162,9 @@ class MVTechBuilder(StandardBuilder):
         pos_files = []
         for path_cat in self.path:
             neg_files += glob(os.path.join(path_cat, 'train', 'good', '*.png'))
+            neg_files += glob(os.path.join(path_cat, 'test', 'good', '*.png'))
             pos_files += glob(os.path.join(path_cat, 'test', '*', '*.png'))
+            pos_files = [p for p in pos_files if 'good' not in p] # exclude all anomalies
 
         neg_df = pd.DataFrame(data={'lbl': ['good'] * len(neg_files)}, index=neg_files)
         pos_df = pd.DataFrame(data={'lbl': ['bad'] * len(pos_files)}, index=pos_files)

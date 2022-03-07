@@ -87,11 +87,10 @@ class StandardBuilder():
         logging.info('total images %d', balanced_df.shape[0])
 
         if FLAGS.show_debug:
-            log_train = train_df.sample(n=5, replace=False)
-            logging.info('train df {}', log_train)
-            log_test = test_df.sample(n=5, replace=False)
-            logging.info('test df {}', log_test)
-
+            log_train = train_df.sample(n=10, replace=False)
+            log_test = test_df.sample(n=10, replace=False)
+            print(log_train)
+            print(log_test)
        
         return (train_df, test_df)
 

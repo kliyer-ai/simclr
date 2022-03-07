@@ -1,3 +1,4 @@
+from dataclasses import replace
 from operator import index
 import tensorflow as tf
 import os
@@ -84,6 +85,13 @@ class StandardBuilder():
         test_df = balanced_df.drop(index=train_df.index)
 
         logging.info('total images %d', balanced_df.shape[0])
+
+        if FLAGS.show_debug:
+            log_train = train_df.sample(n=5, replace=False)
+            logging.info('train df {}', log_train)
+            log_test = test_df.sample(n=5, replace=False)
+            logging.info('test df {}', log_test)
+
        
         return (train_df, test_df)
 
@@ -181,10 +189,7 @@ class MVTechBuilder(StandardBuilder):
         else:
             raise ValueError('Splits needs to be either train or test.')
 
-        if FLAGS.show_debug:
-            logging.info('train df {}', self.train_ds)
-            logging.info('test df {}', self.test_ds)
-
+        
         return dataset.map(process, num_parallel_calls=AUTOTUNE)
 
     def _load_mvtech_dataset(self):

@@ -277,6 +277,11 @@ flags.DEFINE_list(
     'Specify mvtec dataset categories to run the model on.'
 )
 
+flags.DEFINE_boolean(
+    'show_debug', False,
+    'Whether or not to who debug information.'
+)
+
 
 def get_salient_tensors_dict(include_projection_head):
     """Returns a dictionary of tensors."""

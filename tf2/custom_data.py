@@ -9,6 +9,9 @@ from glob import glob
 from absl import logging
 import sys
 
+from absl import flags
+FLAGS = flags.FLAGS
+
 
 def getBuilder(dataset, *args, **kwargs):
     if dataset == 'mvtech':
@@ -177,6 +180,10 @@ class MVTechBuilder(StandardBuilder):
             dataset = self.test_ds
         else:
             raise ValueError('Splits needs to be either train or test.')
+
+        if FLAGS.show_debug:
+            logging.info('train df {}', self.train_ds)
+            logging.info('test df {}', self.test_ds)
 
         return dataset.map(process, num_parallel_calls=AUTOTUNE)
 

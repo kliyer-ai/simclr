@@ -51,7 +51,7 @@ class StandardBuilder():
             # so that that test set will also be balanced
             pos_frame = data_frame[pos_mask]
             drop_idx = pos_frame.sample(n=n_pos_total - n_pos, replace=False, axis=0).index
-            data_frame = data_frame.drop(index=drop_idx)
+            balanced_df = data_frame.drop(index=drop_idx)
         elif n_neg <= n_neg_total: 
             # if we don't have enough pos samples let's drop some neg samples then
             n_neg_train = round(n_neg * (1 - self.test_perc))
@@ -60,7 +60,7 @@ class StandardBuilder():
             # so that that test set will also be balanced
             neg_frame = data_frame[neg_mask]
             drop_idx = neg_frame.sample(n=n_neg_total - n_neg, replace=False, axis=0).index
-            data_frame = data_frame.drop(index=drop_idx)
+            balanced_df = data_frame.drop(index=drop_idx)
         else:
             raise Exception('Error when computing anomaly_perc split')
 
@@ -72,15 +72,15 @@ class StandardBuilder():
         """
 
 
-        neg_incl = data_frame[neg_mask]
-        pos_incl = data_frame[pos_mask]
+        neg_incl = balanced_df[balanced_df.lbl == 'IO']
+        pos_incl = balanced_df[balanced_df.lbl == 'NIO']
         neg_incl = neg_incl.sample(n=n_neg_train, replace=False, axis=0)
         pos_incl = pos_incl.sample(n=n_pos_train, replace=False, axis=0)
 
         train_df = pd.concat([neg_incl, pos_incl])
-        test_df = data_frame.drop(index=train_df.index)
+        test_df = balanced_df.drop(index=train_df.index)
 
-        logging.info('total images %d', data_frame.shape[0])
+        logging.info('total images %d', balanced_df.shape[0])
        
         return (train_df, test_df)
 

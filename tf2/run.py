@@ -237,18 +237,18 @@ flags.DEFINE_boolean(
 )
 
 flags.DEFINE_float(
-    'train_test_ratio', 0.3,
+    'test_perc', 0.3,
     'train/test'
 )
 
-flags.DEFINE_boolean(
-    'use_all_data', True,
-    'in case of false only IO data to use. not recommended.'
-)
+# flags.DEFINE_boolean(
+#     'use_all_data', True,
+#     'in case of false only IO data to use. not recommended.'
+# )
 
 flags.DEFINE_float(
-    'min_fraction_anomalies', 0.7,
-    'Minimum fraction of images with anomalies to be included in the training. '
+    'anomaly_perc', 0.1,
+    'Percentage of images with anomalies to be included in the training. '
     'Is not considered when use_all_data False.'
 )
 
@@ -523,9 +523,9 @@ def main(argv):
                          train_mode=FLAGS.train_mode,
                          load_existing_split=FLAGS.load_existing_split,
                          results_dir=FLAGS.model_dir + '_' + FLAGS.run_id,
-                         use_all_data=FLAGS.use_all_data,
-                         train_test_ratio=FLAGS.train_test_ratio,
-                         min_fraction_anomalies=FLAGS.min_fraction_anomalies,
+                        #  use_all_data=FLAGS.use_all_data,
+                         test_perc=FLAGS.test_perc,
+                         anomaly_perc=FLAGS.anomaly_perc,
                          categories=FLAGS.categories)
 
     builder.download_and_prepare()

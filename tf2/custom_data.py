@@ -22,39 +22,62 @@ def getBuilder(dataset, *args, **kwargs):
 class StandardBuilder():
 
     def __init__(self, *args, train_mode='train_then_eval',
-                 use_all_data=True, min_fraction_anomalies=0.8,
-                 train_test_ratio=0.2, **kwargs):
+                #  use_all_data=True, 
+                 anomaly_perc=0.8,
+                 test_perc=0.2, 
+                 **kwargs):
         self.train_mode = train_mode
-        self.use_all_data = use_all_data #kwargs.get('use_all_data', True)
-        self.min_fraction_anomalies = min_fraction_anomalies# kwargs.get('min_fraction_anomalies', 0.8)
-        self.train_test_ratio = train_test_ratio# kwargs.get('train_test_ratio', 0.2)
+        # self.use_all_data = use_all_data
+        self.anomaly_perc = anomaly_perc
+        self.test_perc = test_perc
         self._info = None
         
 
     def split_data_set(self, data_frame, neg_mask, pos_mask):
-        if not self.use_all_data:
-                dt_df = data_frame[neg_mask]
-                self.min_fraction_anomalies = 0.0  # not used
-        else:
-            dt_df = data_frame
+      
+        n_neg_total = data_frame[neg_mask].shape[0]
+        n_pos_total = data_frame[pos_mask].shape[0]
 
-        if self.min_fraction_anomalies <= 0.0:
-            train_df = dt_df.sample(frac=1 - self.train_test_ratio, replace=False, axis=0)
-        else:
-            pos_incl = data_frame[pos_mask]
-            pos_incl = pos_incl.sample(frac=self.min_fraction_anomalies, replace=False, axis=0)
-            """
-            if self.min_fraction_anomalies < self.train_test_ratio:
-                # include more IOs
-                self.train_test_ratio = self.train_test_ratio + \
-                                        (self.train_test_ratio - self.min_fraction_anomalies)
-            """
-            #
-            train_df = data_frame[neg_mask]                
-            train_df = train_df.sample(frac=1 - self.train_test_ratio, replace=False, axis=0)
-            train_df = pd.concat([train_df, pos_incl])
-            train_df = train_df.sample(frac=1)
+        # compute the number of positive and negative samples we need to ensure anomaly_perc
+        n_pos = round((1/(1-self.anomaly_perc) -1) * n_neg_total)
+        n_neg = round((1/self.anomaly_perc - 1) * n_pos_total)
 
+        # check if there are enough positive samples to ensure anomaly_perc if we use all neg samples
+        # if there is not, use all pos sample and instead drop some neg samples 
+        if n_pos <= n_pos_total:
+            n_pos_train = round(n_pos * (1 - self.test_perc))
+            n_neg_train = round(n_neg_total * (1 - self.test_perc))
+            # let's remove the pos samples we don't need
+            # so that that test set will also be balanced
+            pos_frame = data_frame[pos_mask]
+            drop_idx = pos_frame.sample(n=n_pos_total - n_pos, replace=False, axis=0).index
+            data_frame = data_frame.drop(index=drop_idx)
+        elif n_neg <= n_neg_total: 
+            # if we don't have enough pos samples let's drop some neg samples then
+            n_neg_train = round(n_neg * (1 - self.test_perc))
+            n_pos_train = round(n_pos_total * (1 - self.test_perc))
+            # let's remove the neg samples we don't need
+            # so that that test set will also be balanced
+            neg_frame = data_frame[neg_mask]
+            drop_idx = neg_frame.sample(n=n_neg_total - n_neg, replace=False, axis=0).index
+            data_frame = data_frame.drop(index=drop_idx)
+        else:
+            raise Exception('Error when computing anomaly_perc split')
+
+        """
+        if self.anomaly_perc < self.test_perc:
+            # include more IOs
+            self.test_perc = self.test_perc + \
+                                    (self.test_perc - self.anomaly_perc)
+        """
+
+
+        neg_incl = data_frame[neg_mask]
+        pos_incl = data_frame[pos_mask]
+        neg_incl = neg_incl.sample(n=n_neg_train, replace=False, axis=0)
+        pos_incl = pos_incl.sample(n=n_pos_train, replace=False, axis=0)
+
+        train_df = pd.concat([neg_incl, pos_incl])
         test_df = data_frame.drop(index=train_df.index)
 
         logging.info('total images %d', data_frame.shape[0])

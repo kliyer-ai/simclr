@@ -65,7 +65,7 @@ def build_input_fn(builder, global_batch_size, topology, is_training):
         logging.info('num_input_pipelines: %d', input_context.num_input_pipelines)
         dataset = builder.as_dataset(
             split=FLAGS.train_split if is_training else FLAGS.eval_split,
-            shuffle_files=is_training,
+            shuffle_files=True, #is_training,
             as_supervised=True,
             # Passing the input_context to TFDS makes TFDS read different parts
             # of the dataset on different workers. We also adjust the interleave

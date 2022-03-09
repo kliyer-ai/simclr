@@ -94,13 +94,14 @@ class StandardBuilder():
        
         self.train_df = train_df
         self.test_df = test_df
+
+        self.set_info()
+
         return (train_df, test_df)
 
     def set_info(self):
         logging.info('train images %d', self.train_df.shape[0])
         logging.info('test images %d', self.test_df.shape[0])
-
-       
 
         self._info = Map({
             'splits': Map({
@@ -230,7 +231,7 @@ class MVTechBuilder(StandardBuilder):
 
         train_df, test_df = self.split_data(df, neg_mask, pos_mask)
 
-        self.set_info(train_df, test_df)
+        # self.set_info(train_df, test_df)
 
         # res = self.prepare_dataset(train_df, test_df)
         # self.train_ds = res['train_ds']
@@ -327,7 +328,7 @@ class BMWBuilder(StandardBuilder):
             with open(os.path.join(self.results_dir, "split.pkl"), "rb") as f:
                 (train_df, test_df) = pickle.load(f)
 
-        self.set_info(train_df, test_df)
+        # self.set_info(train_df, test_df)
         # res = self.prepare_dataset(train_df, test_df)
         # self.train_ds = res['train_ds']
         # self.test_ds = res['test_ds']

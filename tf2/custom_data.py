@@ -11,6 +11,7 @@ from absl import logging
 import sys
 
 from absl import flags
+from absl import logging
 FLAGS = flags.FLAGS
 
 
@@ -36,7 +37,6 @@ class StandardBuilder():
         self.test_perc = test_perc
         self._info = None
         
-
     def split_data(self, data_frame, neg_mask, pos_mask):
       
         n_neg_total = data_frame[neg_mask].shape[0]
@@ -75,7 +75,6 @@ class StandardBuilder():
                                     (self.test_perc - self.anomaly_perc)
         """
 
-
         neg_incl = balanced_df[balanced_df.lbl == 'IO']
         pos_incl = balanced_df[balanced_df.lbl == 'NIO']
         neg_incl = neg_incl.sample(n=n_neg_train, replace=False, axis=0)
@@ -89,8 +88,8 @@ class StandardBuilder():
         if FLAGS.show_debug:
             log_train = train_df.sample(n=10, replace=False)
             log_test = test_df.sample(n=10, replace=False)
-            print(log_train)
-            print(log_test)
+            logging.info(log_train)
+            logging.info(log_test)
        
         self.train_df = train_df
         self.test_df = test_df
@@ -130,7 +129,7 @@ class StandardBuilder():
     # batch_size is handled somewhere else
     # as_supervised is always set to true
     # read_config could be implemented manually to perhaps increase performance
-    def build_dataset(self, split=None, batch_size=None, shuffle_files=None, as_supervised=False, read_config=None):
+    def build_dataset(self, split=None, batch_size=None, shuffle_files=True, as_supervised=False, read_config=None):
 
         if split == 'train':
             df = self.train_df
@@ -139,10 +138,10 @@ class StandardBuilder():
         else:
             raise ValueError('Splits needs to be either train or test.')
 
-        
         if shuffle_files:
+            logging.info("shuffling split: {}".format(split))
             df = df.sample(frac=1)
-            print(df.head())
+            logging.info(df.head())
 
         dataset =tf.data.Dataset.from_tensor_slices(list(zip(df.index.values, df.lbl)))
 
@@ -163,7 +162,7 @@ class MVTechBuilder(StandardBuilder):
 
     def __init__(self, dataset, data_dir, *args, **kwargs):
         super().__init__(**kwargs)
-        print(kwargs)
+        logging.info(kwargs)
         self.dataset = dataset
         if kwargs["categories"] != None:
             self.path = [os.path.join(data_dir, cat) for cat in kwargs["categories"]]
@@ -205,12 +204,9 @@ class MVTechBuilder(StandardBuilder):
             img = tf.io.read_file(tpl[0])
             img = decode_img(img)
             return img, label
-        
-        
 
         dataset = self.build_dataset(**kwargs)
 
-        
         return dataset.map(process, num_parallel_calls=AUTOTUNE)
 
     def _load_mvtech_dataset(self):
@@ -308,7 +304,7 @@ class BMWBuilder(StandardBuilder):
 
     def _load_bmw_dataset(self):
         if not self.load_existing_split:
-            annotations = pd.read_csv(os.path.join(self.path, 'annotation.csv'), index_col='file_name')
+            annotations = pd.read_csv(os.path.join(self.path, 'annotation.csv'))
             neg_mask = annotations.lbl.values == 'IO'
             pos_mask = annotations.lbl.values != 'IO'
 
@@ -328,6 +324,10 @@ class BMWBuilder(StandardBuilder):
             with open(os.path.join(self.results_dir, "split.pkl"), "rb") as f:
                 (train_df, test_df) = pickle.load(f)
 
+        train_df['file_name'] = train_df['file_name'].apply(lambda x: os.path.join(self.path, x))
+        test_df['file_name'] = test_df['file_name'].apply(lambda x: os.path.join(self.path, x))
+        train_df.set_index('file_name', inplace=True)
+        test_df.set_index('file_name', inplace=True)
         # self.set_info(train_df, test_df)
         # res = self.prepare_dataset(train_df, test_df)
         # self.train_ds = res['train_ds']

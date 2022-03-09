@@ -69,19 +69,25 @@ def update_finetune_metrics_eval(label_accuracy, label_recall, label_precision,
                               y_pred=tf.nn.softmax(outputs))
     label_precision.update_state(y_true=labels,
                                  y_pred=tf.nn.softmax(outputs))
-    TP = tf.math.count_nonzero(tf.clip_by_value(outputs, 0, 1) * labels)
-    TN = tf.math.count_nonzero((tf.clip_by_value(outputs, 0, 1) - 1) * (labels - 1))
-    FP = tf.math.count_nonzero(tf.clip_by_value(outputs, 0, 1) * (labels - 1))
-    FN = tf.math.count_nonzero((tf.clip_by_value(outputs, 0, 1) - 1) * labels)
-    #
+    # TP = tf.math.count_nonzero(tf.clip_by_value(outputs, 0, 1) * labels)
+    # TN = tf.math.count_nonzero((tf.clip_by_value(outputs, 0, 1) - 1) * (labels - 1))
+    # FP = tf.math.count_nonzero(tf.clip_by_value(outputs, 0, 1) * (labels - 1))
+    # FN = tf.math.count_nonzero((tf.clip_by_value(outputs, 0, 1) - 1) * labels)
+
+    TP = tf.math.count_nonzero(tf.nn.softmax(outputs, 0, 1) * labels)
+    TN = tf.math.count_nonzero((tf.nn.softmax(outputs, 0, 1) - 1) * (labels - 1))
+    FP = tf.math.count_nonzero(tf.nn.softmax(outputs, 0, 1) * (labels - 1))
+    FN = tf.math.count_nonzero((tf.nn.softmax(outputs, 0, 1) - 1) * labels)
+
+    
     precision = TP / (TP + FP)
     recall = TP / (TP + FN)
     tf.print("++++++++++++++++PRECISION++++++++++++")
     tf.print(precision)
-    tf.print(label_precision.result().numpy())
+    tf.print(label_precision.result())
     tf.print("++++++++++++++++RECALL++++++++++++")
     tf.print(recall)
-    tf.print(label_recall.result().numpy())
+    tf.print(label_recall.result())
 
     # label_top_K_accuracy_metrics.update_state(labels, outputs)
 

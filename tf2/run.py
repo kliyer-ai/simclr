@@ -278,7 +278,7 @@ flags.DEFINE_list(
 )
 
 flags.DEFINE_boolean(
-    'show_debug', False,
+    'show_debug', True,
     'Whether or not to who debug information.'
 )
 
@@ -410,8 +410,8 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
         # label_top_1_accuracy = tf.keras.metrics.Accuracy(
         #     'eval/label_top_1_accuracy')
         label_accuracy = tf.keras.metrics.Mean('eval/label_accuracy')
-        label_recall = tf.keras.metrics.Recall(name='eval/label_recall')
-        label_precision = tf.keras.metrics.Precision(name='eval/label_precision')
+        label_recall = tf.keras.metrics.Recall(name='eval/label_recall', class_id=1)
+        label_precision = tf.keras.metrics.Precision(name='eval/label_precision', class_id=0)
         # label_top_K_accuracy = tf.keras.metrics.TopKCategoricalAccuracy(
         #     FLAGS.top_K, 'eval/label_top_' + str(FLAGS.top_K) + '_accuracy')
         all_metrics = [
@@ -615,8 +615,10 @@ def main(argv):
             if FLAGS.train_mode == 'finetune' or FLAGS.lineareval_while_pretraining:
                 supervised_loss_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/supervised_loss')
                 supervised_acc_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/supervised_acc')
-                supervised_recall_metric = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall')
-                supervised_precision_metric = tf.keras.metrics.Precision(name=FLAGS.train_mode + '/supervised_precision')
+                supervised_recall_metric = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall',
+                                                                   class_id=1)
+                supervised_precision_metric = tf.keras.metrics.Precision(name=FLAGS.train_mode + '/supervised_precision',
+                                                                         class_id=0)
                 all_metrics.extend([supervised_loss_metric, supervised_acc_metric,
                                     supervised_recall_metric, supervised_precision_metric])
 

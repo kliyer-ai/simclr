@@ -91,11 +91,6 @@ class StandardBuilder():
             logging.info(log_train)
             logging.info(log_test)
        
-        self.train_df = train_df
-        self.test_df = test_df
-
-        self.set_info()
-
         return (train_df, test_df)
 
     def set_info(self):
@@ -226,6 +221,11 @@ class MVTechBuilder(StandardBuilder):
         pos_mask = df.lbl.values == 'NIO'
 
         train_df, test_df = self.split_data(df, neg_mask, pos_mask)
+        
+        self.train_df = train_df
+        self.test_df = test_df
+
+        self.set_info()
 
         # self.set_info(train_df, test_df)
 
@@ -313,12 +313,12 @@ class BMWBuilder(StandardBuilder):
             if self.train_mode == 'finetune':
                 if os.path.isfile(os.path.join(self.results_dir, "split.pkl")):
                     logging.warn("finetune mode and existing split detected. Change your run_id! Stopping")
-                    sys.exit("Change our run_id!")
+                    sys.exit("Change your run_id!")
 
             with open(os.path.join(self.results_dir, "split.pkl"), "wb") as f:
                 pickle.dump((train_df, test_df), f)
         else:
-            if self.train_mode != 'finetune':
+            if self.train_mode == 'finetune':
                 logging.warn("finetune mode detected. existing split will be loaded. make sure this is what you want!")
             logging.info("loading existing split from {}".format(os.path.join(self.results_dir, "split.pkl")))
             with open(os.path.join(self.results_dir, "split.pkl"), "rb") as f:
@@ -328,11 +328,11 @@ class BMWBuilder(StandardBuilder):
         test_df['file_name'] = test_df['file_name'].apply(lambda x: os.path.join(self.path, x))
         train_df.set_index('file_name', inplace=True)
         test_df.set_index('file_name', inplace=True)
-        # self.set_info(train_df, test_df)
-        # res = self.prepare_dataset(train_df, test_df)
-        # self.train_ds = res['train_ds']
-        # self.test_ds = res['test_ds']
-        # self._info = res['info']
+
+        self.train_df = train_df
+        self.test_df = test_df
+
+        self.set_info()
 
 
 class Map(dict):

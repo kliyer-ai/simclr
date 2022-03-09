@@ -74,10 +74,10 @@ def update_finetune_metrics_eval(label_accuracy, label_recall, label_precision,
     # FP = tf.math.count_nonzero(tf.clip_by_value(outputs, 0, 1) * (labels - 1))
     # FN = tf.math.count_nonzero((tf.clip_by_value(outputs, 0, 1) - 1) * labels)
 
-    TP = tf.math.count_nonzero(tf.nn.softmax(outputs, 0, 1) * labels)
-    TN = tf.math.count_nonzero((tf.nn.softmax(outputs, 0, 1) - 1) * (labels - 1))
-    FP = tf.math.count_nonzero(tf.nn.softmax(outputs, 0, 1) * (labels - 1))
-    FN = tf.math.count_nonzero((tf.nn.softmax(outputs, 0, 1) - 1) * labels)
+    TP = tf.math.count_nonzero(tf.nn.softmax(outputs) * labels)
+    TN = tf.math.count_nonzero((tf.nn.softmax(outputs) - 1) * (labels - 1))
+    FP = tf.math.count_nonzero(tf.nn.softmax(outputs) * (labels - 1))
+    FN = tf.math.count_nonzero((tf.nn.softmax(outputs) - 1) * labels)
 
     
     precision = TP / (TP + FP)

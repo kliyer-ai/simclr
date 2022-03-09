@@ -37,7 +37,7 @@ class StandardBuilder():
         self._info = None
         
 
-    def split_data_set(self, data_frame, neg_mask, pos_mask):
+    def split_data(self, data_frame, neg_mask, pos_mask):
       
         n_neg_total = data_frame[neg_mask].shape[0]
         n_pos_total = data_frame[pos_mask].shape[0]
@@ -92,22 +92,23 @@ class StandardBuilder():
             print(log_train)
             print(log_test)
        
+        self.train_df = train_df
+        self.test_df = test_df
         return (train_df, test_df)
 
-    def prepare_dataset(self, train_df, test_df):
-        logging.info('train images %d', train_df.shape[0])
-        logging.info('test images %d', test_df.shape[0])
+    def set_info(self):
+        logging.info('train images %d', self.train_df.shape[0])
+        logging.info('test images %d', self.test_df.shape[0])
 
-        train_ds = tf.data.Dataset.from_tensor_slices(list(zip(train_df.index.values, train_df.lbl)))
-        test_ds = tf.data.Dataset.from_tensor_slices(list(zip(test_df.index.values, test_df.lbl)))
+       
 
-        info = Map({
+        self._info = Map({
             'splits': Map({
                 'train': Map({
-                    'num_examples': train_df.shape[0]
+                    'num_examples': self.train_df.shape[0]
                 }),
                 'test': Map({
-                    'num_examples': test_df.shape[0]
+                    'num_examples': self.test_df.shape[0]
                 })
             }),
             'features': Map({
@@ -117,11 +118,34 @@ class StandardBuilder():
             })
         })
 
-        return {
-            'info': info,
-            'train_ds': train_ds,
-            'test_ds': test_ds
-        }
+        # return {
+        #     'info': info,
+        #     'train_ds': train_ds,
+        #     'test_ds': test_ds
+        # }
+
+    # these are the standard attributes the as_dataset function of tfds accepts
+    # for us only split and shuffle_files is interesting
+    # batch_size is handled somewhere else
+    # as_supervised is always set to true
+    # read_config could be implemented manually to perhaps increase performance
+    def build_dataset(self, split=None, batch_size=None, shuffle_files=None, as_supervised=False, read_config=None):
+
+        if split == 'train':
+            df = self.train_df
+        elif split == 'test':
+            df = self.test_df
+        else:
+            raise ValueError('Splits needs to be either train or test.')
+
+        
+        if shuffle_files:
+            df = df.sample(frac=1)
+            print(df.head())
+
+        dataset =tf.data.Dataset.from_tensor_slices(list(zip(df.index.values, df.lbl)))
+
+        return dataset
 
 
 class MVTechBuilder(StandardBuilder):
@@ -154,7 +178,7 @@ class MVTechBuilder(StandardBuilder):
             raise ValueError('info is None. Call download_and_prepare() first.')
         return self._info
 
-    def as_dataset(self, split=None, batch_size=None, shuffle_files=None, as_supervised=False, read_config=None):
+    def as_dataset(self, *args, **kwargs):
 
         AUTOTUNE = tf.data.AUTOTUNE
 
@@ -181,12 +205,9 @@ class MVTechBuilder(StandardBuilder):
             img = decode_img(img)
             return img, label
         
-        if split == 'train':
-            dataset = self.train_ds
-        elif split == 'test':
-            dataset = self.test_ds
-        else:
-            raise ValueError('Splits needs to be either train or test.')
+        
+
+        dataset = self.build_dataset(**kwargs)
 
         
         return dataset.map(process, num_parallel_calls=AUTOTUNE)
@@ -207,12 +228,14 @@ class MVTechBuilder(StandardBuilder):
         neg_mask = df.lbl.values == 'IO'
         pos_mask = df.lbl.values == 'NIO'
 
-        train_df, test_df = self.split_data_set(df, neg_mask, pos_mask)
+        train_df, test_df = self.split_data(df, neg_mask, pos_mask)
 
-        res = self.prepare_dataset(train_df, test_df)
-        self.train_ds = res['train_ds']
-        self.test_ds = res['test_ds']
-        self._info = res['info']
+        self.set_info(train_df, test_df)
+
+        # res = self.prepare_dataset(train_df, test_df)
+        # self.train_ds = res['train_ds']
+        # self.test_ds = res['test_ds']
+        # self._info = res['info']
 
 
 class BMWBuilder(StandardBuilder):
@@ -250,7 +273,7 @@ class BMWBuilder(StandardBuilder):
             raise ValueError('info is None. Call download_and_prepare() first.')
         return self._info
 
-    def as_dataset(self, split=None, batch_size=None, shuffle_files=None, as_supervised=False, read_config=None):
+    def as_dataset(self, *args, **kwargs):
 
         if tf.version.VERSION != '2.7.0':
             AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -278,12 +301,7 @@ class BMWBuilder(StandardBuilder):
             img = decode_img(img)
             return img, label
 
-        if split == 'train':
-            dataset = self.train_ds
-        elif split == 'test':
-            dataset = self.test_ds
-        else:
-            raise ValueError('Splits needs to be either train or test.')
+        dataset = self.build_dataset(**kwargs)
 
         return dataset.map(process, num_parallel_calls=AUTOTUNE)
 
@@ -293,7 +311,7 @@ class BMWBuilder(StandardBuilder):
             neg_mask = annotations.lbl.values == 'IO'
             pos_mask = annotations.lbl.values != 'IO'
 
-            train_df, test_df = self.split_data_set(annotations, neg_mask, pos_mask)
+            train_df, test_df = self.split_data(annotations, neg_mask, pos_mask)
 
             if self.train_mode == 'finetune':
                 if os.path.isfile(os.path.join(self.results_dir, "split.pkl")):
@@ -309,10 +327,11 @@ class BMWBuilder(StandardBuilder):
             with open(os.path.join(self.results_dir, "split.pkl"), "rb") as f:
                 (train_df, test_df) = pickle.load(f)
 
-        res = self.prepare_dataset(train_df, test_df)
-        self.train_ds = res['train_ds']
-        self.test_ds = res['test_ds']
-        self._info = res['info']
+        self.set_info(train_df, test_df)
+        # res = self.prepare_dataset(train_df, test_df)
+        # self.train_ds = res['train_ds']
+        # self.test_ds = res['test_ds']
+        # self._info = res['info']
 
 
 class Map(dict):

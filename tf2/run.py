@@ -543,8 +543,9 @@ def main(argv):
     # return
 
     train_steps = model_lib.get_train_steps(num_train_examples)
-    eval_steps = FLAGS.eval_steps or int(
-        math.ceil(num_eval_examples / FLAGS.eval_batch_size))
+    # eval_steps = FLAGS.eval_steps or int(math.ceil(num_eval_examples / FLAGS.eval_batch_size))
+    # let's use floor to skip the last incomplete batch and avoid erros when saving the model
+    eval_steps = FLAGS.eval_steps or int(math.floor(num_eval_examples / FLAGS.eval_batch_size))
     epoch_steps = int(round(num_train_examples / FLAGS.train_batch_size))
 
     logging.info('# train examples: %d', num_train_examples)

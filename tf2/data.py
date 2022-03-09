@@ -87,6 +87,8 @@ def build_input_fn(builder, global_batch_size, topology, is_training):
         dataset = dataset.map(
             map_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         dataset = dataset.batch(batch_size, drop_remainder=is_training)
+        # Let's set it always to true to avoid eval problems
+        # dataset = dataset.batch(batch_size, drop_remainder=True)
         dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
         return dataset
 

@@ -282,6 +282,11 @@ flags.DEFINE_boolean(
     'Whether or not to who debug information.'
 )
 
+flags.DEFINE_boolean(
+    'eval_per_epoch', False,
+    'Whether or not to have an eval run after every training epoch'
+)
+
 
 def get_salient_tensors_dict(include_projection_head):
     """Returns a dictionary of tensors."""
@@ -737,6 +742,11 @@ def main(argv):
                 summary_writer.flush()
             for metric in all_metrics:
                 metric.reset_states()
+
+            if FLAGS.eval_per_epoch:
+                perform_evaluation(model, builder, eval_steps,
+                           checkpoint_manager.latest_checkpoint, strategy,
+                           topology)
         logging.info('Training complete...')
 
     if FLAGS.mode == 'train_then_eval':

@@ -38,6 +38,13 @@ class StandardBuilder():
         self._info = None
         
     def split_data(self, data_frame, neg_mask, pos_mask):
+
+        # this is for simply using all data this is available
+        # and splitting it for train / test
+        if self.anomaly_perc < 0.0:
+            train_df = data_frame.sample(frac=1-self.test_perc)
+            test_df = data_frame.drop(index=train_df.index)
+            return (train_df, test_df)
       
         n_neg_total = data_frame[neg_mask].shape[0]
         n_pos_total = data_frame[pos_mask].shape[0]

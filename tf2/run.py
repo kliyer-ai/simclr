@@ -247,7 +247,7 @@ flags.DEFINE_float(
 # )
 
 flags.DEFINE_float(
-    'anomaly_perc', 0.1,
+    'anomaly_perc', -1,
     'Percentage of images with anomalies to be included in the training. '
     'Is not considered when use_all_data False.'
 )

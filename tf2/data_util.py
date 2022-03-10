@@ -22,8 +22,9 @@ import tensorflow.compat.v2 as tf
 
 FLAGS = flags.FLAGS
 
-CROP_PROPORTION = 0.875  # Standard for ImageNet.
-CENTRAL_CROP_PROPORTION = 0.9
+EVAL_CROP_PROPORTION = 0.875  # Standard for ImageNet.
+TRAIN_CROP_PROPORTION = 0.9
+AREA_RANGE=(0.5, 1.0)
 
 
 def random_apply(func, p, x):
@@ -255,7 +256,7 @@ def distorted_bounding_box_crop(image,
                                 bbox,
                                 min_object_covered=0.1,
                                 aspect_ratio_range=(0.75, 1.33),
-                                area_range=(0.05, 1.0),
+                                area_range=AREA_RANGE,
                                 max_attempts=100,
                                 scope=None):
     """Generates cropped_image using one of the bboxes randomly distorted.
@@ -321,7 +322,7 @@ def crop_and_resize(image, height, width):
         bbox,
         min_object_covered=0.1,
         aspect_ratio_range=(3. / 4 * aspect_ratio, 4. / 3. * aspect_ratio),
-        area_range=(0.08, 1.0),
+        area_range=AREA_RANGE,
         max_attempts=100,
         scope=None)
     return tf.image.resize([image], [height, width],
@@ -461,7 +462,7 @@ def preprocess_for_train(image,
                          flip=True,
                          impl='simclrv2',
                          central_crop=True,
-                         central_crop_proportion=CENTRAL_CROP_PROPORTION):
+                         central_crop_proportion=TRAIN_CROP_PROPORTION):
     """Preprocesses the given image for training.
 
     Args:
@@ -506,7 +507,7 @@ def preprocess_for_eval(image, height, width, crop=True):
       A preprocessed image `Tensor`.
     """
     if crop:
-        image = center_crop(image, height, width, crop_proportion=CROP_PROPORTION)
+        image = center_crop(image, height, width, crop_proportion=EVAL_CROP_PROPORTION)
     image = tf.reshape(image, [height, width, 3])
     image = tf.clip_by_value(image, 0., 1.)
     return image
@@ -531,6 +532,6 @@ def preprocess_image(image, height, width, is_training=False,
     # this normalized the image
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
     if is_training:
-        return preprocess_for_train(image, height, width, color_distort)
+        return preprocess_for_train(image, height, width, color_distort, central_crop=FLAGS.dataset == 'bmw')
     else:
         return preprocess_for_eval(image, height, width, test_crop)

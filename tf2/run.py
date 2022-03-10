@@ -247,7 +247,7 @@ flags.DEFINE_float(
 # )
 
 flags.DEFINE_float(
-    'anomaly_perc', 0.1,
+    'anomaly_perc', -1,
     'Percentage of images with anomalies to be included in the training. '
     'Is not considered when use_all_data False.'
 )
@@ -280,6 +280,11 @@ flags.DEFINE_list(
 flags.DEFINE_boolean(
     'show_debug', True,
     'Whether or not to who debug information.'
+)
+
+flags.DEFINE_boolean(
+    'eval_per_epoch', False,
+    'Whether or not to have an eval run after every training epoch'
 )
 
 
@@ -410,10 +415,17 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
         # label_top_1_accuracy = tf.keras.metrics.Accuracy(
         #     'eval/label_top_1_accuracy')
         label_accuracy = tf.keras.metrics.Mean('eval/label_accuracy')
+<<<<<<< .mine
         label_recall_pos = tf.keras.metrics.Recall(name='eval/label_recall_pos', class_id=1)
         label_recall_neg = tf.keras.metrics.Recall(name='eval/label_recall_neg', class_id=0)
         label_precision_pos = tf.keras.metrics.Precision(name='eval/label_precision_pos', class_id=1)
         label_precision_neg = tf.keras.metrics.Precision(name='eval/label_precision_neg', class_id=0)
+=======
+        label_recall = tf.keras.metrics.Recall(name='eval/label_recall', class_id=1)
+        label_precision = tf.keras.metrics.Precision(name='eval/label_precision', class_id=1)
+
+
+>>>>>>> .theirs
         # label_top_K_accuracy = tf.keras.metrics.TopKCategoricalAccuracy(
         #     FLAGS.top_K, 'eval/label_top_' + str(FLAGS.top_K) + '_accuracy')
         all_metrics = [
@@ -623,6 +635,7 @@ def main(argv):
             if FLAGS.train_mode == 'finetune' or FLAGS.lineareval_while_pretraining:
                 supervised_loss_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/supervised_loss')
                 supervised_acc_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/supervised_acc')
+<<<<<<< .mine
                 supervised_recall_metric_pos = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall_pos',
                                                                        class_id=1)
                 supervised_recall_metric_neg = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall_neg',
@@ -631,6 +644,16 @@ def main(argv):
                                                                              class_id=0)
                 supervised_precision_metric_pos = tf.keras.metrics.Precision(name=FLAGS.train_mode + '/supervised_precision_pos',
                                                                              class_id=1)
+=======
+                supervised_recall_metric = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall',
+                                                                   class_id=1)
+                supervised_precision_metric = tf.keras.metrics.Precision(name=FLAGS.train_mode + '/supervised_precision',
+                                                                         class_id=1)
+
+
+
+
+>>>>>>> .theirs
                 all_metrics.extend([supervised_loss_metric, supervised_acc_metric,
                                     supervised_recall_metric_pos, supervised_precision_metric_pos,
                                     supervised_recall_metric_neg, supervised_precision_metric_neg])
@@ -752,6 +775,11 @@ def main(argv):
                 summary_writer.flush()
             for metric in all_metrics:
                 metric.reset_states()
+
+            if FLAGS.eval_per_epoch:
+                perform_evaluation(model, builder, eval_steps,
+                           checkpoint_manager.latest_checkpoint, strategy,
+                           topology)
         logging.info('Training complete...')
 
     if FLAGS.mode == 'train_then_eval':

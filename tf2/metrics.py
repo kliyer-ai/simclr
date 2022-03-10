@@ -89,6 +89,7 @@ def update_finetune_metrics_eval(label_accuracy,
     
     precision = TP / (TP + FP)
     recall = TP / (TP + FN)
+<<<<<<< .mine
     tf.print("++++++++++++++++PRECISION POS++++++++++++")
     tf.print(label_precision_pos.result())
     tf.print("++++++++++++++++PRECISION NEG++++++++++++")
@@ -98,6 +99,17 @@ def update_finetune_metrics_eval(label_accuracy,
     tf.print("++++++++++++++++RECALL NEG++++++++++++")
     tf.print(label_recall_neg.result())
     """
+=======
+    tf.print("++++++++++++++++PRECISION++++++++++++")
+    tf.print(precision)
+    tf.print(label_precision.result())
+    tf.print("++++++++++++++++RECALL++++++++++++")
+    tf.print(recall)
+    tf.print(label_recall.result())
+
+
+
+>>>>>>> .theirs
 
     # label_top_K_accuracy_metrics.update_state(labels, outputs)
 

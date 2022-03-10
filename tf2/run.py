@@ -410,15 +410,17 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
         # label_top_1_accuracy = tf.keras.metrics.Accuracy(
         #     'eval/label_top_1_accuracy')
         label_accuracy = tf.keras.metrics.Mean('eval/label_accuracy')
-        label_recall = tf.keras.metrics.Recall(name='eval/label_recall', class_id=1)
-        label_precision = tf.keras.metrics.Precision(name='eval/label_precision', class_id=0)
+        label_recall_pos = tf.keras.metrics.Recall(name='eval/label_recall_pos', class_id=1)
+        label_recall_neg = tf.keras.metrics.Recall(name='eval/label_recall_neg', class_id=0)
+        label_precision_pos = tf.keras.metrics.Precision(name='eval/label_precision_pos', class_id=1)
+        label_precision_neg = tf.keras.metrics.Precision(name='eval/label_precision_neg', class_id=0)
         # label_top_K_accuracy = tf.keras.metrics.TopKCategoricalAccuracy(
         #     FLAGS.top_K, 'eval/label_top_' + str(FLAGS.top_K) + '_accuracy')
         all_metrics = [
-            regularization_loss, label_accuracy, label_recall, label_precision,
+            regularization_loss, label_accuracy, label_recall_pos, label_recall_neg,
+            label_precision_pos, label_precision_neg
             # label_top_K_accuracy
         ]
-
         # Restore checkpoint.
         logging.info('Restoring from %s', ckpt)
         checkpoint = tf.train.Checkpoint(
@@ -432,8 +434,13 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
         assert supervised_head_outputs is not None
         outputs = supervised_head_outputs
         l = labels['labels']
-        metrics.update_finetune_metrics_eval(label_accuracy, label_recall, label_precision,
-                                             outputs, l)
+        metrics.update_finetune_metrics_eval(label_accuracy=label_accuracy,
+                                             label_recall_pos=label_recall_pos,
+                                             label_precision_pos=label_precision_pos,
+                                             label_recall_neg=label_recall_neg,
+                                             label_precision_neg=label_precision_neg,
+                                             outputs=outputs,
+                                             labels=l)
         reg_loss = model_lib.add_weight_decay(model, adjust_per_optimizer=True)
         regularization_loss.update_state(reg_loss)
 
@@ -451,33 +458,34 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
             logging.info('Completed eval for %d / %d steps', i + 1, eval_steps)
         logging.info('Finished eval for %s', ckpt)
 
-    # Write summaries
-    cur_step = global_step.numpy()
-    logging.info('Writing summaries for %d step', cur_step)
-    with summary_writer.as_default():
-        metrics.log_and_write_metrics_to_summary(all_metrics, cur_step)
-        summary_writer.flush()
+        # Write summaries
+        cur_step = global_step.numpy()
+        logging.info('Writing summaries for %d step', cur_step)
+        with summary_writer.as_default():
+            metrics.log_and_write_metrics_to_summary(all_metrics, cur_step)
+            summary_writer.flush()
 
-    # Record results as JSON.
-    result_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'result.json')
-    result = {metric.name: metric.result().numpy() for metric in all_metrics}
-    result['global_step'] = global_step.numpy()
-    logging.info(result)
-    with tf.io.gfile.GFile(result_json_path, 'w') as f:
-        json.dump({k: float(v) for k, v in result.items()}, f)
-    result_json_path = os.path.join(
-        FLAGS.model_dir + '_' + FLAGS.run_id, 'result_%d.json' % result['global_step'])
-    with tf.io.gfile.GFile(result_json_path, 'w') as f:
-        json.dump({k: float(v) for k, v in result.items()}, f)
-    flag_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'flags.json')
-    with tf.io.gfile.GFile(flag_json_path, 'w') as f:
-        serializable_flags = {}
-        for key, val in FLAGS.flag_values_dict().items():
-            # Some flag value types e.g. datetime.timedelta are not json serializable,
-            # filter those out.
-            if json_serializable(val):
-                serializable_flags[key] = val
-        json.dump(serializable_flags, f)
+        # Record results as JSON.
+        result_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'result.json')
+        result = {metric.name: metric.result().numpy() for metric in all_metrics}
+        result['global_step'] = global_step.numpy()
+        logging.info(result)
+
+        with tf.io.gfile.GFile(result_json_path, 'w') as f:
+            json.dump({k: float(v) for k, v in result.items()}, f)
+        result_json_path = os.path.join(
+            FLAGS.model_dir + '_' + FLAGS.run_id, 'result_%d.json' % result['global_step'])
+        with tf.io.gfile.GFile(result_json_path, 'w') as f:
+            json.dump({k: float(v) for k, v in result.items()}, f)
+        flag_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'flags.json')
+        with tf.io.gfile.GFile(flag_json_path, 'w') as f:
+            serializable_flags = {}
+            for key, val in FLAGS.flag_values_dict().items():
+                # Some flag value types e.g. datetime.timedelta are not json serializable,
+                # filter those out.
+                if json_serializable(val):
+                    serializable_flags[key] = val
+            json.dump(serializable_flags, f)
 
     # Export as SavedModel for finetuning and inference.
     save(model, global_step=result['global_step'])
@@ -601,26 +609,31 @@ def main(argv):
 
             # Build metrics.
             all_metrics = []  # For summaries.
-            weight_decay_metric = tf.keras.metrics.Mean('train/weight_decay')
-            total_loss_metric = tf.keras.metrics.Mean('train/total_loss')
+            weight_decay_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/weight_decay')
+            total_loss_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/total_loss')
             all_metrics.extend([weight_decay_metric, total_loss_metric])
             if FLAGS.train_mode == 'pretrain':
-                contrast_loss_metric = tf.keras.metrics.Mean('train/contrast_loss')
-                contrast_acc_metric = tf.keras.metrics.Mean('train/contrast_acc')
-                contrast_entropy_metric = tf.keras.metrics.Mean(
-                    'train/contrast_entropy')
+                contrast_loss_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/contrast_loss')
+                contrast_acc_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/contrast_acc')
+                contrast_entropy_metric = tf.keras.metrics.Mean(FLAGS.train_mode +
+                                                                '/contrast_entropy')
                 all_metrics.extend([
                     contrast_loss_metric, contrast_acc_metric, contrast_entropy_metric
                 ])
             if FLAGS.train_mode == 'finetune' or FLAGS.lineareval_while_pretraining:
                 supervised_loss_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/supervised_loss')
                 supervised_acc_metric = tf.keras.metrics.Mean(FLAGS.train_mode + '/supervised_acc')
-                supervised_recall_metric = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall',
-                                                                   class_id=1)
-                supervised_precision_metric = tf.keras.metrics.Precision(name=FLAGS.train_mode + '/supervised_precision',
-                                                                         class_id=0)
+                supervised_recall_metric_pos = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall_pos',
+                                                                       class_id=1)
+                supervised_recall_metric_neg = tf.keras.metrics.Recall(name=FLAGS.train_mode + '/supervised_recall_neg',
+                                                                       class_id=0)
+                supervised_precision_metric_neg = tf.keras.metrics.Precision(name=FLAGS.train_mode + '/supervised_precision_neg',
+                                                                             class_id=0)
+                supervised_precision_metric_pos = tf.keras.metrics.Precision(name=FLAGS.train_mode + '/supervised_precision_pos',
+                                                                             class_id=1)
                 all_metrics.extend([supervised_loss_metric, supervised_acc_metric,
-                                    supervised_recall_metric, supervised_precision_metric])
+                                    supervised_recall_metric_pos, supervised_precision_metric_pos,
+                                    supervised_recall_metric_neg, supervised_precision_metric_neg])
 
             # Restore checkpoint if available.
             checkpoint_manager = try_restore_from_checkpoint(
@@ -683,8 +696,10 @@ def main(argv):
                     loss += sup_loss
                 metrics.update_finetune_metrics_train(supervised_loss_metric,
                                                       supervised_acc_metric,
-                                                      supervised_recall_metric,
-                                                      supervised_precision_metric,
+                                                      supervised_recall_metric_pos,
+                                                      supervised_precision_metric_pos,
+                                                      supervised_recall_metric_neg,
+                                                      supervised_precision_metric_neg,
                                                       sup_loss,
                                                       l, outputs)
             weight_decay = model_lib.add_weight_decay(

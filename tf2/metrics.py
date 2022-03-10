@@ -47,7 +47,8 @@ def update_pretrain_metrics_eval(contrast_loss_metric,
 
 
 def update_finetune_metrics_train(supervised_loss_metric, supervised_acc_metric,
-                                  supervised_recall_metric, supervised_precision_metric,
+                                  supervised_recall_metric_pos, supervised_precision_metric_pos,
+                                  supervised_recall_metric_neg, supervised_precision_metric_neg,
                                   loss, labels, logits):
     supervised_loss_metric.update_state(loss)
 
@@ -55,37 +56,48 @@ def update_finetune_metrics_train(supervised_loss_metric, supervised_acc_metric,
     label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
     supervised_acc_metric.update_state(label_acc)
     #
-    supervised_recall_metric.update_state(y_true=labels,
-                                          y_pred=tf.nn.softmax(logits))
-    supervised_precision_metric.update_state(y_true=labels,
-                                             y_pred=tf.nn.softmax(logits))
+    supervised_recall_metric_pos.update_state(y_true=labels,
+                                              y_pred=tf.nn.softmax(logits))
+    supervised_precision_metric_pos.update_state(y_true=labels,
+                                                 y_pred=tf.nn.softmax(logits))
+    supervised_recall_metric_neg.update_state(y_true=labels,
+                                              y_pred=tf.nn.softmax(logits))
+    supervised_precision_metric_neg.update_state(y_true=labels,
+                                                 y_pred=tf.nn.softmax(logits))
 
 
-def update_finetune_metrics_eval(label_accuracy, label_recall, label_precision,
+def update_finetune_metrics_eval(label_accuracy,
+                                 label_recall_pos, label_precision_pos,
+                                 label_recall_neg, label_precision_neg,
                                  outputs, labels):
     label_accuracy.update_state(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
     #
-    label_recall.update_state(y_true=labels, y_pred=tf.nn.softmax(outputs))
-    label_precision.update_state(y_true=labels, y_pred=tf.nn.softmax(outputs))
-    # TP = tf.math.count_nonzero(tf.clip_by_value(outputs, 0, 1) * labels)
-    # TN = tf.math.count_nonzero((tf.clip_by_value(outputs, 0, 1) - 1) * (labels - 1))
-    # FP = tf.math.count_nonzero(tf.clip_by_value(outputs, 0, 1) * (labels - 1))
-    # FN = tf.math.count_nonzero((tf.clip_by_value(outputs, 0, 1) - 1) * labels)
+    label_recall_pos.update_state(y_true=labels,
+                                  y_pred=tf.nn.softmax(outputs))
+    label_recall_neg.update_state(y_true=labels,
+                                  y_pred=tf.nn.softmax(outputs))
+    label_precision_pos.update_state(y_true=labels,
+                                     y_pred=tf.nn.softmax(outputs))
+    label_precision_neg.update_state(y_true=labels,
+                                     y_pred=tf.nn.softmax(outputs))
 
+    """
     TP = tf.math.count_nonzero(tf.nn.softmax(outputs) * labels)
     TN = tf.math.count_nonzero((tf.nn.softmax(outputs) - 1) * (labels - 1))
     FP = tf.math.count_nonzero(tf.nn.softmax(outputs) * (labels - 1))
     FN = tf.math.count_nonzero((tf.nn.softmax(outputs) - 1) * labels)
-
     
     precision = TP / (TP + FP)
     recall = TP / (TP + FN)
-    tf.print("++++++++++++++++PRECISION++++++++++++")
-    # tf.print(precision)
-    tf.print(label_precision.result())
-    tf.print("++++++++++++++++RECALL++++++++++++")
-    # tf.print(recall)
-    tf.print(label_recall.result())
+    tf.print("++++++++++++++++PRECISION POS++++++++++++")
+    tf.print(label_precision_pos.result())
+    tf.print("++++++++++++++++PRECISION NEG++++++++++++")
+    tf.print(label_precision_neg.result())
+    tf.print("++++++++++++++++RECALL POS++++++++++++")
+    tf.print(label_recall_pos.result())
+    tf.print("++++++++++++++++RECALL NEG++++++++++++")
+    tf.print(label_recall_neg.result())
+    """
 
     # label_top_K_accuracy_metrics.update_state(labels, outputs)
 

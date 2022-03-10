@@ -221,7 +221,7 @@ class MVTechBuilder(StandardBuilder):
         pos_mask = df.lbl.values == 'NIO'
 
         train_df, test_df = self.split_data(df, neg_mask, pos_mask)
-        
+
         self.train_df = train_df
         self.test_df = test_df
 

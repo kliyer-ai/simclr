@@ -13,4 +13,4 @@ python3 run.py --dataset=mvtech --data_dir="/mnt/runs/data" --eval_split=test \
 --model_dir="/mnt/runs/logs" --mode=train_then_eval --train_mode=finetune --image_size=$image_size \
 --image_size=$image_size --train_batch_size=$batch_size --test_perc=0.5 \
 --eval_batch_size=$batch_size --anomaly_perc=0.5 --run_id=$run_id \
---train_epochs=1000 # --categories=$categories
+--train_epochs=100 # --categories=$categories

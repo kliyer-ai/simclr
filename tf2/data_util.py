@@ -531,6 +531,6 @@ def preprocess_image(image, height, width, is_training=False,
     # this normalized the image
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
     if is_training:
-        return preprocess_for_train(image, height, width, color_distort)
+        return preprocess_for_train(image, height, width, color_distort, central_crop=FLAGS.dataset == 'bmw')
     else:
         return preprocess_for_eval(image, height, width, test_crop)

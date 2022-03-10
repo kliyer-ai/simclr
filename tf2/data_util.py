@@ -22,8 +22,8 @@ import tensorflow.compat.v2 as tf
 
 FLAGS = flags.FLAGS
 
-CROP_PROPORTION = 0.875  # Standard for ImageNet.
-CENTRAL_CROP_PROPORTION = 0.9
+EVAL_CROP_PROPORTION = 0.875  # Standard for ImageNet.
+TRAIN_CROP_PROPORTION = 0.9
 
 
 def random_apply(func, p, x):
@@ -461,7 +461,7 @@ def preprocess_for_train(image,
                          flip=True,
                          impl='simclrv2',
                          central_crop=True,
-                         central_crop_proportion=CENTRAL_CROP_PROPORTION):
+                         central_crop_proportion=TRAIN_CROP_PROPORTION):
     """Preprocesses the given image for training.
 
     Args:
@@ -506,7 +506,7 @@ def preprocess_for_eval(image, height, width, crop=True):
       A preprocessed image `Tensor`.
     """
     if crop:
-        image = center_crop(image, height, width, crop_proportion=CROP_PROPORTION)
+        image = center_crop(image, height, width, crop_proportion=EVAL_CROP_PROPORTION)
     image = tf.reshape(image, [height, width, 3])
     image = tf.clip_by_value(image, 0., 1.)
     return image

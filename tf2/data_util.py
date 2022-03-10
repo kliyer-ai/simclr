@@ -24,6 +24,7 @@ FLAGS = flags.FLAGS
 
 EVAL_CROP_PROPORTION = 0.875  # Standard for ImageNet.
 TRAIN_CROP_PROPORTION = 0.9
+AREA_RANGE=(0.5, 1.0)
 
 
 def random_apply(func, p, x):
@@ -255,7 +256,7 @@ def distorted_bounding_box_crop(image,
                                 bbox,
                                 min_object_covered=0.1,
                                 aspect_ratio_range=(0.75, 1.33),
-                                area_range=(0.05, 1.0),
+                                area_range=AREA_RANGE,
                                 max_attempts=100,
                                 scope=None):
     """Generates cropped_image using one of the bboxes randomly distorted.
@@ -321,7 +322,7 @@ def crop_and_resize(image, height, width):
         bbox,
         min_object_covered=0.1,
         aspect_ratio_range=(3. / 4 * aspect_ratio, 4. / 3. * aspect_ratio),
-        area_range=(0.08, 1.0),
+        area_range=AREA_RANGE,
         max_attempts=100,
         scope=None)
     return tf.image.resize([image], [height, width],

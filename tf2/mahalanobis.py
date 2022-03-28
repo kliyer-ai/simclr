@@ -1,7 +1,7 @@
 import numpy as np
 from keras.models import Model
-import scipy
-
+from scipy.spatial import distance
+from scipy import linalg
 
 class MahalanobisOutlierDetector:
     """
@@ -32,13 +32,13 @@ class MahalanobisOutlierDetector:
         """
         self.features_mean = np.mean(self.features, axis=0)
         self.features_covmat = np.cov(self.features, rowvar=False)
-        self.features_covmat_inv = scipy.linalg.inv(self.features_covmat)
+        self.features_covmat_inv = linalg.inv(self.features_covmat)
         
     def _calculate_distance(self, x) -> float:
         """
         Calculate Mahalanobis distance for an input instance.
         """
-        return scipy.spatial.distance.mahalanobis(x, self.features_mean, self.features_covmat_inv)
+        return distance.mahalanobis(x, self.features_mean, self.features_covmat_inv)
     
     def _infer_threshold(self, verbose):
         """

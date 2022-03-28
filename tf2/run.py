@@ -770,7 +770,7 @@ def main(argv):
                                                         True, strategy, topology)
 
             od = MahalanobisOutlierDetector(features_extractor=model)
-            od.fit(train_ds, train_steps)
+            od.fit(train_ds, epoch_steps)
 
             eval_ds = data_lib.build_distributed_dataset(builder, FLAGS.eval_batch_size, False,
                                                 strategy, topology)

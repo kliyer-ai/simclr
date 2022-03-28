@@ -265,6 +265,9 @@ class Model(tf.keras.models.Model):
     projection_head_outputs, supervised_head_inputs = self._projection_head(
         hiddens, training)
 
+    # the supervised head is our embedding
+    embedding = supervised_head_inputs
+
     if FLAGS.train_mode == 'finetune':
       supervised_head_outputs = self.supervised_head(supervised_head_inputs,
                                                      training)
@@ -275,6 +278,6 @@ class Model(tf.keras.models.Model):
       # so we put a stop_gradient.
       supervised_head_outputs = self.supervised_head(
           tf.stop_gradient(supervised_head_inputs), training)
-      return projection_head_outputs, supervised_head_outputs
+      return projection_head_outputs, supervised_head_outputs, embedding
     else:
-      return projection_head_outputs, None
+      return projection_head_outputs, None, embedding

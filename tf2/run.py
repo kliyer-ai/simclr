@@ -29,6 +29,7 @@ import objective as obj_lib
 import tensorflow.compat.v2 as tf
 import tensorflow_datasets as tfds
 from custom_data import getBuilder
+from mahalanobis import MahalanobisOutlierDetector
 
 FLAGS = flags.FLAGS
 
@@ -287,6 +288,11 @@ flags.DEFINE_boolean(
     'Whether or not to have an eval run after every training epoch'
 )
 
+flags.DEFINE_bool(
+    'eval_mahal', False,
+    'Whether or not to evaluate the embedding using the Mahalanobis detector'
+)
+
 
 def get_salient_tensors_dict(include_projection_head):
     """Returns a dictionary of tensors."""
@@ -433,7 +439,7 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
         logging.info('Performing eval at step %d', global_step.numpy())
 
     def single_step(features, labels):
-        _, supervised_head_outputs = model(features, training=False)
+        _, supervised_head_outputs, _ = model(features, training=False)
         assert supervised_head_outputs is not None
         outputs = supervised_head_outputs
         l = labels['labels']
@@ -583,6 +589,7 @@ def main(argv):
 
     with strategy.scope():
         model = model_lib.Model(num_classes)
+        print(model.summary())
 
     if FLAGS.mode == 'eval':
         for ckpt in tf.train.checkpoints_iterator(
@@ -654,7 +661,7 @@ def main(argv):
                 tf.summary.image(
                     'image', features[:, :, :, :3], step=optimizer.iterations + 1)
 
-            projection_head_outputs, supervised_head_outputs = model(
+            projection_head_outputs, supervised_head_outputs, _ = model(
                 features, training=True)
             # here it gets decided over what components to calculate the loss and
             # ultimately do packprop
@@ -753,6 +760,21 @@ def main(argv):
         perform_evaluation(model, builder, eval_steps,
                            checkpoint_manager.latest_checkpoint, strategy,
                            topology)
+
+
+    if FLAGS.eval_mahal:
+        train_ds = data_lib.build_distributed_dataset(builder, FLAGS.train_batch_size,
+                                                    True, strategy, topology)
+
+        od = MahalanobisOutlierDetector(features_extractor=model)
+        od.fit(train_ds)
+
+        eval_ds = data_lib.build_distributed_dataset(builder, FLAGS.eval_batch_size, False,
+                                            strategy, topology)
+
+        od.predict(eval_ds)
+
+                    
 
 
 if __name__ == '__main__':

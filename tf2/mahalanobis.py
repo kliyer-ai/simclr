@@ -16,13 +16,13 @@ class MahalanobisOutlierDetector:
         self.features_covmat_inv = None
         self.threshold = None
         
-    def _extract_features(self, dataset, verbose) -> np.ndarray:
+    def _extract_features(self, dataset, steps, verbose) -> np.ndarray:
         """
         Extract features from the base model.
         """
 
         # If x is a tf.data dataset and steps is None, predict() will run until the input dataset is exhausted.
-        _, _, embedding = self.features_extractor.predict(dataset, steps=None, workers=8, verbose=verbose)
+        _, _, embedding = self.features_extractor.predict(dataset, steps=steps, workers=8, verbose=verbose)
         
         return embedding
         
@@ -53,19 +53,19 @@ class MahalanobisOutlierDetector:
             print("OD score std :", std)
             print("OD threshold :", self.threshold)  
             
-    def fit(self, dataset, verbose=1):
+    def fit(self, dataset, steps, verbose=1):
         """
         Fit detector model.
         """
-        self.features = self._extract_features(dataset, verbose)
+        self.features = self._extract_features(dataset, steps, verbose)
         self._init_calculations()
         self._infer_threshold(verbose)
         
-    def predict(self, dataset, verbose=1) -> np.ndarray:
+    def predict(self, dataset, steps, verbose=1) -> np.ndarray:
         """
         Calculate outlier score (Mahalanobis distance).
         """
-        features  =  self._extract_features(dataset, verbose)
+        features  =  self._extract_features(dataset, steps, verbose)
         scores = np.asarray([self._calculate_distance(feature) for feature in features])
         if verbose > 0:
             print("OD score mean:", np.mean(scores))

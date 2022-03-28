@@ -589,7 +589,6 @@ def main(argv):
 
     with strategy.scope():
         model = model_lib.Model(num_classes)
-        print(model.summary())
 
     if FLAGS.mode == 'eval':
         for ckpt in tf.train.checkpoints_iterator(
@@ -761,18 +760,21 @@ def main(argv):
                            checkpoint_manager.latest_checkpoint, strategy,
                            topology)
 
+    print(model.summary())
+
+
 
     if FLAGS.eval_mahal:
         train_ds = data_lib.build_distributed_dataset(builder, FLAGS.train_batch_size,
                                                     True, strategy, topology)
 
         od = MahalanobisOutlierDetector(features_extractor=model)
-        od.fit(train_ds)
+        od.fit(train_ds, train_steps)
 
         eval_ds = data_lib.build_distributed_dataset(builder, FLAGS.eval_batch_size, False,
                                             strategy, topology)
 
-        od.predict(eval_ds)
+        od.predict(eval_ds, eval_steps)
 
                     
 

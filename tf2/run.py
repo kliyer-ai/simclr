@@ -760,9 +760,6 @@ def main(argv):
                            checkpoint_manager.latest_checkpoint, strategy,
                            topology)
 
-    print(model.summary())
-
-
 
     if FLAGS.eval_mahal:
         with strategy.scope():

@@ -71,6 +71,28 @@ class MahalanobisOutlierDetector:
             print("OD score mean:", np.mean(scores))
             print("OD score std :", np.std(scores))
             print(f"Outliers     :{len(np.where(scores > self.threshold )[0])/len(scores): 1.2%}")
+
+        # get all the labels from the dataset
+        labels = dataset.map(lambda x: x[1])
+        # get them as numpy array
+        labels = list(labels.as_numpy_iterator())
+        print(labels)
+        # so all anomalies should have a score higher than 1
+        pred = scores > self.threshold
+
+        TP = np.count_nonzero(pred * labels)
+        TN = np.count_nonzero((pred - 1) * (labels - 1))
+        FP = np.count_nonzero(pred * (labels - 1))
+        FN = np.count_nonzero((pred - 1) * labels)
+
+        
+        precision = TP / (TP + FP)
+        recall = TP / (TP + FN)
+        print("++++++++++++++++PRECISION++++++++++++")
+        print(precision)
+        print("++++++++++++++++RECALL++++++++++++")
+        print(recall)
+
             
         # if verbose > 1:
         #     plt.hist(scores, bins=100);

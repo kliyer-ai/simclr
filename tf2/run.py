@@ -763,16 +763,16 @@ def main(argv):
 
     if FLAGS.eval_mahal:
         with strategy.scope():
-            fit_ds = data_lib.build_distributed_dataset(builder, FLAGS.eval_batch_size,
-                                                        False, strategy, topology)
+            fit_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size,
+                                                        True, strategy, topology)
 
             od = MahalanobisOutlierDetector(features_extractor=model)
             od.fit(fit_ds, epoch_steps)
 
-            eval_ds = data_lib.build_distributed_dataset(builder, FLAGS.eval_batch_size, False,
+            eval_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size, False,
                                                 strategy, topology)
 
-            od.predict(eval_ds, eval_steps)
+            od.predict(eval_ds, eval_steps, strategy)
 
                     
 

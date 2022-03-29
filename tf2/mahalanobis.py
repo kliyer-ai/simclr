@@ -2,6 +2,7 @@ import numpy as np
 from keras.models import Model
 from scipy.spatial import distance
 from scipy import linalg
+import tensorflow as tf
 
 class MahalanobisOutlierDetector:
     """
@@ -62,7 +63,7 @@ class MahalanobisOutlierDetector:
         self._init_calculations()
         self._infer_threshold(verbose)
         
-    def predict(self, dataset, steps, verbose=1) -> np.ndarray:
+    def predict(self, dataset, steps, strategy, verbose=1) -> np.ndarray:
         """
         Calculate outlier score (Mahalanobis distance).
         """
@@ -74,17 +75,23 @@ class MahalanobisOutlierDetector:
             print(f"Outliers     :{len(np.where(scores > self.threshold )[0])/len(scores): 1.2%}")
 
         # get all the labels from the dataset
+
+        @tf.function
+        def get_labels(inputs):
+            images, labels = inputs
+            return tf.math.argmax(labels, axis=1)
         
-        # doesn't work because it's a distributed DS
-        # labels = dataset.map(lambda x: x[1])
         labels = []
         iterator = iter(dataset)
-        for (features, label) in iterator:
-            labels.append(label)
+        for _ in range(steps):
+            batch_label = strategy.run(get_labels, args=(next(iterator),))
+            batch_label = strategy.gather(batch_label, axis=0)
+            labels += list(batch_label.numpy())
 
         labels = np.array(labels)
-        print(labels)
-        # so all anomalies should have a score higher than 1
+        # print(labels)
+        # print(labels.shape)
+        # so all anomalies should be 1
         pred = scores > self.threshold
 
         TP = np.count_nonzero(pred * labels)

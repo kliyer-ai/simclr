@@ -403,7 +403,7 @@ def json_serializable(val):
         return False
 
 
-def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
+def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology, epoch_steps):
     """Perform evaluation."""
     if FLAGS.train_mode == 'pretrain' and not FLAGS.lineareval_while_pretraining:
         logging.info('Skipping eval during pretraining without linear eval.')
@@ -469,6 +469,9 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology):
         metrics.log_and_write_metrics_to_summary(all_metrics, cur_step)
         summary_writer.flush()
 
+    if FLAGS.eval_mahal:
+        evaluate_mahalanobis(model, builder, epoch_steps, eval_steps, strategy, topology)
+
     # Record results as JSON.
     result_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'result.json')
     result = {metric.name: metric.result().numpy() for metric in all_metrics}
@@ -525,6 +528,20 @@ def _restore_latest_or_from_pretrain(checkpoint_manager):
                          [x.op.name for x in output_layer_parameters])
             for x in output_layer_parameters:
                 x.assign(tf.zeros_like(x))
+
+
+def evaluate_mahalanobis(model, builder, epoch_steps, eval_steps, strategy, topology):
+    with strategy.scope():
+        fit_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size,
+                                                    True, strategy, topology)
+
+        od = MahalanobisOutlierDetector(features_extractor=model)
+        od.fit(fit_ds, epoch_steps)
+
+        eval_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size, False,
+                                            strategy, topology)
+
+        od.predict(eval_ds, eval_steps, strategy)
 
 
 def main(argv):
@@ -594,7 +611,7 @@ def main(argv):
         for ckpt in tf.train.checkpoints_iterator(
                 FLAGS.model_dir + '_' + FLAGS.run_id, min_interval_secs=15):
             result = perform_evaluation(model, builder, eval_steps, ckpt, strategy,
-                                        topology)
+                                        topology, epoch_steps)
             if result['global_step'] >= train_steps:
                 logging.info('Eval complete. Exiting...')
                 return
@@ -752,27 +769,14 @@ def main(argv):
             if FLAGS.eval_per_epoch:
                 perform_evaluation(model, builder, eval_steps,
                            checkpoint_manager.latest_checkpoint, strategy,
-                           topology)
+                           topology, epoch_steps)
         logging.info('Training complete...')
 
     if FLAGS.mode == 'train_then_eval':
         perform_evaluation(model, builder, eval_steps,
                            checkpoint_manager.latest_checkpoint, strategy,
-                           topology)
-
-
-    if FLAGS.eval_mahal:
-        with strategy.scope():
-            fit_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size,
-                                                        True, strategy, topology)
-
-            od = MahalanobisOutlierDetector(features_extractor=model)
-            od.fit(fit_ds, epoch_steps)
-
-            eval_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size, False,
-                                                strategy, topology)
-
-            od.predict(eval_ds, eval_steps, strategy)
+                           topology, epoch_steps)
+        
 
                     
 

@@ -106,6 +106,78 @@ def build_distributed_dataset(builder, batch_size, is_training, strategy,
         return strategy.distribute_datasets_from_function(input_fn)
 
 
+def build_mahal_fn(builder, global_batch_size, topology, is_training):
+    """Build input function.
+
+    Args:
+      builder: TFDS builder for specified dataset.
+      global_batch_size: Global batch size.
+      topology: An instance of `tf.tpu.experimental.Topology` or None.
+      is_training: Whether to use the test or train set
+
+    Returns:
+      A function that accepts a dict of params and returns a tuple of images and
+      features, to be used as the input_fn in TPUEstimator.
+    """
+
+    def _input_fn(input_context):
+        """Inner input function."""
+        batch_size = input_context.get_per_replica_batch_size(global_batch_size)
+        logging.info('Global batch size: %d', global_batch_size)
+        logging.info('Per-replica batch size: %d', batch_size)
+        preprocess_fn = get_preprocess_fn(is_training=False, is_pretrain=False)
+        num_classes = builder.info.features['label'].num_classes
+        logging.info('num classes: %d', num_classes)
+
+        def map_fn(image, label):
+            """Produces multiple transformations of the same batch."""
+            image = preprocess_fn(image)
+            label = tf.one_hot(label, num_classes)
+            return image, label
+
+        logging.info('num_input_pipelines: %d', input_context.num_input_pipelines)
+        dataset = builder.as_dataset(
+            split=FLAGS.train_split if is_training else FLAGS.eval_split,
+            shuffle_files=True, #is_training,
+            as_supervised=True,
+            # Passing the input_context to TFDS makes TFDS read different parts
+            # of the dataset on different workers. We also adjust the interleave
+            # parameters to achieve better performance.
+            read_config=tfds.ReadConfig(
+                interleave_cycle_length=32,
+                interleave_block_length=1,
+                input_context=input_context))
+        if FLAGS.cache_dataset:
+            dataset = dataset.cache()
+        if is_training:
+            options = tf.data.Options()
+            options.experimental_deterministic = False
+            options.experimental_slack = True
+            dataset = dataset.with_options(options)
+            buffer_multiplier = 50 if FLAGS.image_size[0] <= 32 else 10
+            dataset = dataset.shuffle(batch_size * buffer_multiplier)
+            dataset = dataset.repeat(-1)
+        dataset = dataset.map(
+            map_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.batch(batch_size, drop_remainder=is_training)
+        # Let's set it always to true to avoid eval problems
+        # dataset = dataset.batch(batch_size, drop_remainder=True)
+        dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+        return dataset
+
+    return _input_fn
+
+
+def build_mahalanobis_dataset(builder, batch_size, is_training, strategy, topology):
+    input_fn = build_mahal_fn(builder, batch_size, topology, is_training)
+
+    if tf.version.VERSION != '2.7.0':
+        return strategy.experimental_distribute_datasets_from_function(
+            input_fn)  # because cluster not on latest tf2 version
+    else:
+        return strategy.distribute_datasets_from_function(input_fn)
+
+
 def get_preprocess_fn(is_training, is_pretrain):
     """Get function that accepts an image and returns a preprocessed image."""
     # Disable test cropping for small images (e.g. CIFAR)

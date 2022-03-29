@@ -238,7 +238,7 @@ class Model(tf.keras.models.Model):
     if FLAGS.train_mode == 'finetune' or FLAGS.lineareval_while_pretraining:
       self.supervised_head = SupervisedHead(num_classes)
 
-  def __call__(self, inputs, training):
+  def call(self, inputs, training):
     features = inputs
     if training and FLAGS.train_mode == 'pretrain':
       if FLAGS.fine_tune_after_block > -1:

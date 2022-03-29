@@ -22,6 +22,7 @@ class MahalanobisOutlierDetector:
         """
 
         # If x is a tf.data dataset and steps is None, predict() will run until the input dataset is exhausted.
+        # but we still need steps here because it's a distributed dataset
         _, _, embedding = self.features_extractor.predict(dataset, steps=steps, workers=8, verbose=verbose)
         
         return embedding
@@ -73,9 +74,15 @@ class MahalanobisOutlierDetector:
             print(f"Outliers     :{len(np.where(scores > self.threshold )[0])/len(scores): 1.2%}")
 
         # get all the labels from the dataset
-        labels = dataset.map(lambda x: x[1])
-        # get them as numpy array
-        labels = list(labels.as_numpy_iterator())
+        
+        # doesn't work because it's a distributed DS
+        # labels = dataset.map(lambda x: x[1])
+        labels = []
+        iterator = iter(dataset)
+        for (features, label) in iterator:
+            labels.append(label)
+
+        labels = np.array(labels)
         print(labels)
         # so all anomalies should have a score higher than 1
         pred = scores > self.threshold

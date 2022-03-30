@@ -27,12 +27,12 @@ def getBuilder(dataset, *args, **kwargs):
 class StandardBuilder():
 
     def __init__(self, *args, train_mode='train_then_eval',
-                #  use_all_data=True, 
+                 use_good_data=False,
                  anomaly_perc=0.8,
                  test_perc=0.2, 
                  **kwargs):
         self.train_mode = train_mode
-        # self.use_all_data = use_all_data
+        self.use_good_data = use_good_data
         self.anomaly_perc = anomaly_perc
         self.test_perc = test_perc
         self._info = None
@@ -41,11 +41,19 @@ class StandardBuilder():
 
         # this is for simply using all data this is available
         # and splitting it for train / test
-        if self.anomaly_perc < 0.0:
+
+        if self.anomaly_perc <= 0.0:
             train_df = data_frame.sample(frac=1-self.test_perc)
             test_df = data_frame.drop(index=train_df.index)
             return (train_df, test_df)
-      
+
+        if self.use_good_data:
+            train_df = data_frame[neg_mask]
+            train_df = train_df.sample(frac=1-self.test_perc)
+            test_df = data_frame.drop(index=train_df.index)
+            return (train_df, test_df)
+
+        assert self.anomaly_perc > 0.0
         n_neg_total = data_frame[neg_mask].shape[0]
         n_pos_total = data_frame[pos_mask].shape[0]
 
@@ -182,7 +190,10 @@ class MVTechBuilder(StandardBuilder):
 
     def as_dataset(self, *args, **kwargs):
 
-        AUTOTUNE = tf.data.AUTOTUNE
+        if tf.version.VERSION != '2.7.0':
+            AUTOTUNE = tf.data.experimental.AUTOTUNE
+        else:
+            AUTOTUNE = tf.data.AUTOTUNE
 
         def get_label(status):
             # Convert the path to a list of path components
@@ -218,7 +229,7 @@ class MVTechBuilder(StandardBuilder):
             neg_files += glob(os.path.join(path_cat, 'train', 'good', '*.png'))
             neg_files += glob(os.path.join(path_cat, 'test', 'good', '*.png'))
             pos_files += glob(os.path.join(path_cat, 'test', '*', '*.png'))
-            pos_files = [p for p in pos_files if 'good' not in p] # exclude all anomalies
+            pos_files = [p for p in pos_files if 'good' not in p] #exclude all anomalies
 
         neg_df = pd.DataFrame(data={'lbl': ['IO'] * len(neg_files)}, index=neg_files)
         pos_df = pd.DataFrame(data={'lbl': ['NIO'] * len(pos_files)}, index=pos_files)
@@ -262,8 +273,8 @@ class BMWBuilder(StandardBuilder):
         super().__init__(**kwargs)
         self.dataset = dataset
         self.path = data_dir
-        self.load_existing_split=load_existing_split
-        self.results_dir=results_dir
+        self.load_existing_split = load_existing_split
+        self.results_dir = results_dir
 
         if not os.path.exists(self.results_dir):
             os.mkdir(self.results_dir)

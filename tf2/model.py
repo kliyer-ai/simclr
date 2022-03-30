@@ -269,6 +269,7 @@ class Model(tf.keras.models.Model):
     embedding = supervised_head_inputs
 
     if FLAGS.train_mode == 'finetune':
+      # no matter lineareval_while_pretraining == True / False
       supervised_head_outputs = self.supervised_head(supervised_head_inputs,
                                                      training)
       return None, supervised_head_outputs
@@ -280,4 +281,5 @@ class Model(tf.keras.models.Model):
           tf.stop_gradient(supervised_head_inputs), training)
       return projection_head_outputs, supervised_head_outputs, embedding
     else:
+      # train_mode == 'pretrain' and lineareval_while_pretraining == False
       return projection_head_outputs, None, embedding

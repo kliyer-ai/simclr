@@ -242,15 +242,15 @@ flags.DEFINE_float(
     'train/test'
 )
 
-# flags.DEFINE_boolean(
-#     'use_all_data', True,
-#     'in case of false only IO data to use. not recommended.'
-# )
+flags.DEFINE_boolean(
+    'use_good_data', False,
+    'in case of false only IO data to use. not recommended.'
+)
 
 flags.DEFINE_float(
     'anomaly_perc', -1,
     'Percentage of images with anomalies to be included in the training. '
-    'Is not considered when use_all_data False.'
+    'Is not considered when use_good_data False.'
 )
 
 flags.DEFINE_string(
@@ -405,8 +405,8 @@ def json_serializable(val):
 
 def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology, epoch_steps):
     """Perform evaluation."""
-    if FLAGS.train_mode == 'pretrain' and not FLAGS.lineareval_while_pretraining:
-        logging.info('Skipping eval during pretraining without linear eval.')
+    if FLAGS.train_mode == 'pretrain' and (not FLAGS.lineareval_while_pretraining or not FLAGS.eval_mahal):
+        logging.info('Skipping eval during pretraining without linear eval and without Mahalanobis.')
         return
     # Build input pipeline.
     ds = data_lib.build_distributed_dataset(builder, FLAGS.eval_batch_size, False,
@@ -417,6 +417,9 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology, epo
 
     # Build metrics.
     with strategy.scope():
+        pref = 'eval'
+        if FLAGS.eval_mahal:
+            pref = 'eval_mahalanobis'
         regularization_loss = tf.keras.metrics.Mean('eval/regularization_loss')
         # label_top_1_accuracy = tf.keras.metrics.Accuracy(
         #     'eval/label_top_1_accuracy')
@@ -477,6 +480,7 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology, epo
             summary_writer.flush()
 
         if FLAGS.eval_mahal:
+            logging.info("Starting MahalanobisOutlierDetector")
             evaluate_mahalanobis(model, builder, epoch_steps, eval_steps, strategy, topology)
 
         # Record results as JSON.
@@ -540,14 +544,14 @@ def _restore_latest_or_from_pretrain(checkpoint_manager):
 
 def evaluate_mahalanobis(model, builder, epoch_steps, eval_steps, strategy, topology):
     with strategy.scope():
-        fit_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size,
+        fit_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.train_batch_size,
                                                     True, strategy, topology)
 
         od = MahalanobisOutlierDetector(features_extractor=model)
         od.fit(fit_ds, epoch_steps, strategy)
 
         eval_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size, False,
-                                            strategy, topology)
+                                                     strategy, topology)
 
         od.predict(eval_ds, eval_steps, strategy)
 
@@ -564,7 +568,7 @@ def main(argv):
                          train_mode=FLAGS.train_mode,
                          load_existing_split=FLAGS.load_existing_split,
                          results_dir=FLAGS.model_dir + '_' + FLAGS.run_id,
-                        #  use_all_data=FLAGS.use_all_data,
+                         use_good_data=FLAGS.use_good_data,
                          test_perc=FLAGS.test_perc,
                          anomaly_perc=FLAGS.anomaly_perc,
                          categories=FLAGS.categories)

@@ -108,13 +108,11 @@ def build_distributed_dataset(builder, batch_size, is_training, strategy,
 
 def build_mahal_fn(builder, global_batch_size, topology, is_training):
     """Build input function.
-
     Args:
       builder: TFDS builder for specified dataset.
       global_batch_size: Global batch size.
       topology: An instance of `tf.tpu.experimental.Topology` or None.
       is_training: Whether to use the test or train set
-
     Returns:
       A function that accepts a dict of params and returns a tuple of images and
       features, to be used as the input_fn in TPUEstimator.

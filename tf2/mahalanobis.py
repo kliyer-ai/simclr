@@ -10,23 +10,36 @@ class MahalanobisOutlierDetector:
     calculates the Mahalanobis distance as an outlier score.
     """
     def __init__(self, features_extractor: Model):
-        self.features_extractor = features_extractor
+        self.model = features_extractor
         self.features = None
         self.features_mean = None
         self.features_covmat = None
         self.features_covmat_inv = None
         self.threshold = None
         
-    def _extract_features(self, dataset, steps, verbose) -> np.ndarray:
+    def _extract_features(self, dataset, steps, strategy, verbose) -> np.ndarray:
         """
         Extract features from the base model.
         """
 
         # If x is a tf.data dataset and steps is None, predict() will run until the input dataset is exhausted.
         # but we still need steps here because it's a distributed dataset
-        _, _, embedding = self.features_extractor.predict(dataset, steps=steps, workers=8, verbose=verbose)
+        # _, _, embedding = self.model.predict(dataset, steps=steps, workers=8, verbose=verbose)
+
+        embeddings = []
+        @tf.function
+        def single_step(images):
+            _, _, embedding = self.model(images, training=False)
+            return embedding
+
+        iterator = iter(dataset)
+        for _ in range(steps):
+            images, _ = next(iterator)
+            batch_embedding = strategy.run(single_step, (images,))
+            batch_embedding = strategy.gather(batch_embedding, axis=0)
+            embeddings += list(batch_embedding.numpy())
         
-        return embedding
+        return np.array(embeddings)
         
     def _init_calculations(self):
         """
@@ -35,6 +48,9 @@ class MahalanobisOutlierDetector:
         self.features_mean = np.mean(self.features, axis=0)
         self.features_covmat = np.cov(self.features, rowvar=False)
         self.features_covmat_inv = linalg.inv(self.features_covmat)
+        print(self.features.shape)
+        print(self.features_mean.shape)
+        print(self.features_covmat)
         
     def _calculate_distance(self, x) -> float:
         """
@@ -55,11 +71,11 @@ class MahalanobisOutlierDetector:
             print("OD score std :", std)
             print("OD threshold :", self.threshold)  
             
-    def fit(self, dataset, steps, verbose=1):
+    def fit(self, dataset, steps, strategy, verbose=1):
         """
         Fit detector model.
         """
-        self.features = self._extract_features(dataset, steps, verbose)
+        self.features = self._extract_features(dataset, steps, strategy, verbose)
         self._init_calculations()
         self._infer_threshold(verbose)
         
@@ -67,7 +83,7 @@ class MahalanobisOutlierDetector:
         """
         Calculate outlier score (Mahalanobis distance).
         """
-        features  =  self._extract_features(dataset, steps, verbose)
+        features  =  self._extract_features(dataset, steps, strategy, verbose)
         scores = np.asarray([self._calculate_distance(feature) for feature in features])
         if verbose > 0:
             print("OD score mean:", np.mean(scores))

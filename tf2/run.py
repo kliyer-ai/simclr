@@ -544,7 +544,7 @@ def evaluate_mahalanobis(model, builder, epoch_steps, eval_steps, strategy, topo
                                                     True, strategy, topology)
 
         od = MahalanobisOutlierDetector(features_extractor=model)
-        od.fit(fit_ds, epoch_steps)
+        od.fit(fit_ds, epoch_steps, strategy)
 
         eval_ds = data_lib.build_mahalanobis_dataset(builder, FLAGS.eval_batch_size, False,
                                             strategy, topology)

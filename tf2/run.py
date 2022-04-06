@@ -405,7 +405,7 @@ def json_serializable(val):
 
 def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology, epoch_steps):
     """Perform evaluation."""
-    if FLAGS.train_mode == 'pretrain' and (not FLAGS.lineareval_while_pretraining or not FLAGS.eval_mahal):
+    if FLAGS.train_mode == 'pretrain' and not (FLAGS.lineareval_while_pretraining or FLAGS.eval_mahal):
         logging.info('Skipping eval during pretraining without linear eval and without Mahalanobis.')
         return
     # Build input pipeline.

@@ -111,7 +111,7 @@ class MahalanobisOutlierDetector:
         pred = self.pred_scores > self.threshold
         #
         scores_labels = dict(zip(self.pred_scores, labels))
-        with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_pred.pickle', 'wb') as handle:
+        with open('last_mahalanobis_pred.pickle', 'wb') as handle:
             pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         TP = np.count_nonzero(pred * labels)

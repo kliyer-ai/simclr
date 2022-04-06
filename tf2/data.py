@@ -144,7 +144,11 @@ def build_mahal_fn(builder, global_batch_size, topology, is_training):
             read_config=tfds.ReadConfig(
                 interleave_cycle_length=32,
                 interleave_block_length=1,
-                input_context=input_context))
+                input_context=input_context),
+            # this is a custom flag for our custom builder
+            # it's needed for the mahalanobis detector
+            include_classes = True
+            )
         if FLAGS.cache_dataset:
             dataset = dataset.cache()
         if is_training:

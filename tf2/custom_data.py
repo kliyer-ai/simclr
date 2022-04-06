@@ -153,7 +153,7 @@ class StandardBuilder():
             df = df.sample(frac=1)
             logging.info(df.head())
 
-        dataset =tf.data.Dataset.from_tensor_slices(list(zip(df.index.values, df.lbl)))
+        dataset =tf.data.Dataset.from_tensor_slices(list(zip(df.index.values, df.lbl, df.cls)))
 
         return dataset
 
@@ -174,10 +174,11 @@ class MVTechBuilder(StandardBuilder):
         super().__init__(**kwargs)
         logging.info(kwargs)
         self.dataset = dataset
+        self.base_path = data_dir
         if kwargs["categories"] != None:
-            self.path = [os.path.join(data_dir, cat) for cat in kwargs["categories"]]
+            self.categories = kwargs["categories"]
         else:
-            self.path = [os.path.join(data_dir, '*')]
+            self.categories = os.listdir(data_dir)
 
     def download_and_prepare(self):
         self._load_mvtech_dataset()
@@ -188,7 +189,7 @@ class MVTechBuilder(StandardBuilder):
             raise ValueError('info is None. Call download_and_prepare() first.')
         return self._info
 
-    def as_dataset(self, *args, **kwargs):
+    def as_dataset(self, *args, include_classes=False, **kwargs):
 
         if tf.version.VERSION != '2.7.0':
             AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -216,7 +217,11 @@ class MVTechBuilder(StandardBuilder):
             # Load the raw data from the file as a string
             img = tf.io.read_file(tpl[0])
             img = decode_img(img)
-            return img, label
+
+            if include_classes:
+                return img, label, tpl[2]
+            else:
+                return img, label
 
         dataset = self.build_dataset(**kwargs)
 
@@ -225,16 +230,22 @@ class MVTechBuilder(StandardBuilder):
     def _load_mvtech_dataset(self):
         neg_files = []
         pos_files = []
-        for path_cat in self.path:
-            neg_files += glob(os.path.join(path_cat, 'train', 'good', '*.png'))
-            neg_files += glob(os.path.join(path_cat, 'test', 'good', '*.png'))
-            pos_files += glob(os.path.join(path_cat, 'test', '*', '*.png'))
+        neg_classes = []
+        pos_classes = []
+        for c in self.categories:
+            neg_files += glob(os.path.join(self.base_path, c, 'train', 'good', '*.png'))
+            neg_files += glob(os.path.join(self.base_path, c, 'test', 'good', '*.png'))
+            neg_classes += [c] * len(neg_classes)
+            pos_files += glob(os.path.join(self.base_path, c, 'test', '*', '*.png'))
             pos_files = [p for p in pos_files if 'good' not in p] #exclude all anomalies
+            pos_classes += [c] * len(pos_files)
+            
 
-        neg_df = pd.DataFrame(data={'lbl': ['IO'] * len(neg_files)}, index=neg_files)
-        pos_df = pd.DataFrame(data={'lbl': ['NIO'] * len(pos_files)}, index=pos_files)
+        neg_df = pd.DataFrame(data={'lbl': ['IO'] * len(neg_files), 'cls': neg_classes}, index=neg_files)
+        pos_df = pd.DataFrame(data={'lbl': ['NIO'] * len(pos_files), 'cls': pos_classes}, index=pos_files)
 
         df = pd.concat([neg_df, pos_df])
+
         neg_mask = df.lbl.values == 'IO'
         pos_mask = df.lbl.values == 'NIO'
 
@@ -288,7 +299,7 @@ class BMWBuilder(StandardBuilder):
             raise ValueError('info is None. Call download_and_prepare() first.')
         return self._info
 
-    def as_dataset(self, *args, **kwargs):
+    def as_dataset(self, *args, include_classes=False, **kwargs):
 
         if tf.version.VERSION != '2.7.0':
             AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -314,7 +325,11 @@ class BMWBuilder(StandardBuilder):
             # Load the raw data from the file as a string
             img = tf.io.read_file(tpl[0])
             img = decode_img(img)
-            return img, label
+
+            if include_classes:
+                return img, label, tpl[2]
+            else:
+                return img, label
 
         dataset = self.build_dataset(**kwargs)
 
@@ -344,6 +359,8 @@ class BMWBuilder(StandardBuilder):
 
         train_df['file_name'] = train_df['file_name'].apply(lambda x: os.path.join(self.path, x))
         test_df['file_name'] = test_df['file_name'].apply(lambda x: os.path.join(self.path, x))
+        train_df['cls'] = 'car'
+        test_df['cls'] = 'car'
         train_df.set_index('file_name', inplace=True)
         test_df.set_index('file_name', inplace=True)
 

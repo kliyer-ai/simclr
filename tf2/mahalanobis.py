@@ -90,7 +90,7 @@ class MahalanobisOutlierDetector:
         self._infer_threshold(verbose)
         #
         scores_labels = dict(zip(self.fit_scores, labels))
-        with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_fit.pickle', 'wb') as handle:
+        with open('last_mahalanobis_fit.pickle', 'wb') as handle:
             pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def predict(self, dataset, steps, strategy, verbose=1) -> np.ndarray:

@@ -11,7 +11,7 @@ class MahalanobisOutlierDetector:
     An outlier detector which uses an input trained model as feature extractor and
     calculates the Mahalanobis distance as an outlier score.
     """
-    def __init__(self, features_extractor: Model):
+    def __init__(self, features_extractor: Model, store_pickle = False):
         self.model = features_extractor
         self.features = None
         self.features_mean = None
@@ -20,6 +20,7 @@ class MahalanobisOutlierDetector:
         self.threshold = None,
         self.fit_scores = None
         self.pred_scores = None
+        self.store_pickle = store_pickle 
 
     def _extract_features(self, dataset, steps, strategy, verbose) -> np.ndarray:
         """
@@ -90,8 +91,10 @@ class MahalanobisOutlierDetector:
         self._infer_threshold(verbose)
         #
         scores_labels = dict(zip(self.fit_scores, labels))
-        with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_fit.pickle', 'wb') as handle:
-            pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        if self.store_pickle:
+            with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_fit.pickle', 'wb') as handle:
+                pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def predict(self, dataset, steps, strategy, verbose=1) -> np.ndarray:
         """
@@ -111,8 +114,10 @@ class MahalanobisOutlierDetector:
         pred = self.pred_scores > self.threshold
         #
         scores_labels = dict(zip(self.pred_scores, labels))
-        with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_pred.pickle', 'wb') as handle:
-            pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        if self.store_pickle:
+            with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_pred.pickle', 'wb') as handle:
+                pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         TP = np.count_nonzero(pred * labels)
         TN = np.count_nonzero((pred - 1) * (labels - 1))

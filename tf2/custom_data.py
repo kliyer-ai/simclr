@@ -180,6 +180,7 @@ class MVTechBuilder(StandardBuilder):
         else:
             self.categories = os.listdir(data_dir)
 
+
     def download_and_prepare(self):
         self._load_mvtech_dataset()
 
@@ -233,14 +234,18 @@ class MVTechBuilder(StandardBuilder):
         neg_classes = []
         pos_classes = []
         for c in self.categories:
-            neg_files += glob(os.path.join(self.base_path, c, 'train', 'good', '*.png'))
-            neg_files += glob(os.path.join(self.base_path, c, 'test', 'good', '*.png'))
-            neg_classes += [c] * len(neg_classes)
-            pos_files += glob(os.path.join(self.base_path, c, 'test', '*', '*.png'))
-            pos_files = [p for p in pos_files if 'good' not in p] #exclude all anomalies
-            pos_classes += [c] * len(pos_files)
+            new_neg = glob(os.path.join(self.base_path, c, 'train', 'good', '*.png'))
+            new_neg += glob(os.path.join(self.base_path, c, 'test', 'good', '*.png'))
+            neg_classes += [c] * len(new_neg)
+            neg_files += new_neg
+
+            new_pos = glob(os.path.join(self.base_path, c, 'test', '*', '*.png'))
+            new_pos = [p for p in new_pos if 'good' not in p] #exclude all anomalies
+            pos_classes += [c] * len(new_pos)
+            pos_files += new_pos
             
 
+        print(neg_classes)
         neg_df = pd.DataFrame(data={'lbl': ['IO'] * len(neg_files), 'cls': neg_classes}, index=neg_files)
         pos_df = pd.DataFrame(data={'lbl': ['NIO'] * len(pos_files), 'cls': pos_classes}, index=pos_files)
 

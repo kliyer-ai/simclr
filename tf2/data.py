@@ -127,11 +127,11 @@ def build_mahal_fn(builder, global_batch_size, topology, is_training):
         num_classes = builder.info.features['label'].num_classes
         logging.info('num classes: %d', num_classes)
 
-        def map_fn(image, label):
+        def map_fn(image, label, cls):
             """Produces multiple transformations of the same batch."""
             image = preprocess_fn(image)
             label = tf.one_hot(label, num_classes)
-            return image, label
+            return image, label, cls
 
         logging.info('num_input_pipelines: %d', input_context.num_input_pipelines)
         dataset = builder.as_dataset(

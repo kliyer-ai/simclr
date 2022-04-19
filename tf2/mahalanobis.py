@@ -58,8 +58,8 @@ class MahalanobisOutlierDetector:
         self.features_covmat_inv = linalg.inv(self.features_covmat)
         logging.info("features shape: {}".format(self.features.shape))
         logging.info("features mean shape: {}".format(self.features_mean.shape))
-        logging.info("features covmat")
-        logging.info(self.features_covmat)
+        logging.info("features covmat_inv")
+        logging.info(self.features_covmat_inv)
         
     def _calculate_distance(self, x) -> float:
         """
@@ -74,7 +74,7 @@ class MahalanobisOutlierDetector:
         self.fit_scores = np.asarray([self._calculate_distance(feature) for feature in self.features])
         mean = np.mean(self.fit_scores)
         std = np.std(self.fit_scores)
-        self.threshold = mean + 2.0 * std
+        self.threshold = mean + 3.0 * std
         if verbose > 0:
             logging.info("OD score in infer mean {}".format(np.mean(self.fit_scores)))
             logging.info("OD score in infer std {}".format(np.std(self.fit_scores)))
@@ -89,9 +89,13 @@ class MahalanobisOutlierDetector:
         self._init_calculations()
         self._infer_threshold(verbose)
         #
-        scores_labels = dict(zip(self.fit_scores, labels))
-        with open('last_mahalanobis_fit.pickle', 'wb') as handle:
-            pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
+        ft = np.array(self.fit_scores > self.threshold)
+        lbls = np.asarray([[labels[i], ft[i]] for i in range(self.features.shape[0])])
+        scores_labels = dict(zip(self.fit_scores, lbls))
+        #
+        with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_fit.pickle', 'wb') as handle:
+            pickle.dump((scores_labels,
+                         self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def predict(self, dataset, steps, strategy, verbose=1) -> np.ndarray:
         """
@@ -106,12 +110,13 @@ class MahalanobisOutlierDetector:
         if verbose > 0:
             logging.info("OD score in predict mean {}".format(np.mean(self.pred_scores)))
             logging.info("OD score in predict std {}".format(np.std(self.pred_scores)))
-            logging.info(f"Outliers     :{len(np.where(self.pred_scores > self.threshold )[0])/len(self.pred_scores): 1.2%}")
+            logging.info(f"Outliers     :{len(np.where(self.pred_scores > self.threshold)[0])/len(self.pred_scores): 1.2%}")
 
         pred = self.pred_scores > self.threshold
         #
-        scores_labels = dict(zip(self.pred_scores, labels))
-        with open('last_mahalanobis_pred.pickle', 'wb') as handle:
+        lbls = np.asarray([[labels[i], pred[i]] for i in range(features.shape[0])])
+        scores_labels = dict(zip(self.pred_scores, lbls))
+        with open('/home/q373612/LMU/simclr/tf2/last_mahalanobis_pred.pickle', 'wb') as handle:
             pickle.dump((scores_labels, self.threshold), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         TP = np.count_nonzero(pred * labels)
@@ -121,12 +126,14 @@ class MahalanobisOutlierDetector:
 
         precision = TP / (TP + FP)
         recall = TP / (TP + FN)
-        logging.info("++++++++++++++++PRECISION++++++++++++")
+        acc = (TP + TN) / (TP + TN + FP + FN)
+        logging.info("PRECISION NIO")
         logging.info(precision)
-        logging.info("++++++++++++++++RECALL++++++++++++")
+        logging.info("RECALL NIO")
         logging.info(recall)
+        logging.info("ACCURACY")
+        logging.info(acc)
 
-            
         # if verbose > 1:
         #     plt.hist(scores, bins=100);
         #     plt.axvline(self.threshold, c='k', ls='--', label='threshold')

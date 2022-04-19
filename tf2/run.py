@@ -405,7 +405,7 @@ def json_serializable(val):
 
 def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology, epoch_steps):
     """Perform evaluation."""
-    if FLAGS.train_mode == 'pretrain' and not (FLAGS.lineareval_while_pretraining or FLAGS.eval_mahal):
+    if FLAGS.train_mode == 'pretrain' and (not FLAGS.lineareval_while_pretraining and not FLAGS.eval_mahal):
         logging.info('Skipping eval during pretraining without linear eval and without Mahalanobis.')
         return
     # Build input pipeline.
@@ -466,49 +466,52 @@ def perform_evaluation(model, builder, eval_steps, ckpt, strategy, topology, epo
             features, labels = images, {'labels': labels}
             strategy.run(single_step, (features, labels))
 
-        iterator = iter(ds)
-        for i in range(eval_steps):
-            run_single_step(iterator)
-            logging.info('Completed eval for %d / %d steps', i + 1, eval_steps)
-        logging.info('Finished eval for %s', ckpt)
+        if FLAGS.lineareval_while_pretraining:
+            iterator = iter(ds)
+            for i in range(eval_steps):
+                run_single_step(iterator)
+                logging.info('Completed eval for %d / %d steps', i + 1, eval_steps)
+            logging.info('Finished eval for %s', ckpt)
 
-        # Write summaries
-        cur_step = global_step.numpy()
-        logging.info('Writing summaries for %d step', cur_step)
-        with summary_writer.as_default():
-            metrics.log_and_write_metrics_to_summary(all_metrics, cur_step)
-            summary_writer.flush()
+            # Write summaries
+            cur_step = global_step.numpy()
+            logging.info('Writing summaries for %d step', cur_step)
+            with summary_writer.as_default():
+                metrics.log_and_write_metrics_to_summary(all_metrics, cur_step)
+                summary_writer.flush()
 
+            # Record results as JSON.
+            result_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'result.json')
+            result = {metric.name: metric.result().numpy() for metric in all_metrics}
+            result['global_step'] = global_step.numpy()
+            logging.info(result)
+
+            with tf.io.gfile.GFile(result_json_path, 'w') as f:
+                json.dump({k: float(v) for k, v in result.items()}, f)
+            result_json_path = os.path.join(
+                FLAGS.model_dir + '_' + FLAGS.run_id, 'result_%d.json' % result['global_step'])
+            with tf.io.gfile.GFile(result_json_path, 'w') as f:
+                json.dump({k: float(v) for k, v in result.items()}, f)
+            flag_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'flags.json')
+            with tf.io.gfile.GFile(flag_json_path, 'w') as f:
+                serializable_flags = {}
+                for key, val in FLAGS.flag_values_dict().items():
+                    # Some flag value types e.g. datetime.timedelta are not json serializable,
+                    # filter those out.
+                    if json_serializable(val):
+                        serializable_flags[key] = val
+                json.dump(serializable_flags, f)
+
+        #
         if FLAGS.eval_mahal:
             logging.info("Starting MahalanobisOutlierDetector")
             evaluate_mahalanobis(model, builder, epoch_steps, eval_steps, strategy, topology)
+            return 1
 
-        # Record results as JSON.
-        result_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'result.json')
-        result = {metric.name: metric.result().numpy() for metric in all_metrics}
-        result['global_step'] = global_step.numpy()
-        logging.info(result)
-
-        with tf.io.gfile.GFile(result_json_path, 'w') as f:
-            json.dump({k: float(v) for k, v in result.items()}, f)
-        result_json_path = os.path.join(
-            FLAGS.model_dir + '_' + FLAGS.run_id, 'result_%d.json' % result['global_step'])
-        with tf.io.gfile.GFile(result_json_path, 'w') as f:
-            json.dump({k: float(v) for k, v in result.items()}, f)
-        flag_json_path = os.path.join(FLAGS.model_dir + '_' + FLAGS.run_id, 'flags.json')
-        with tf.io.gfile.GFile(flag_json_path, 'w') as f:
-            serializable_flags = {}
-            for key, val in FLAGS.flag_values_dict().items():
-                # Some flag value types e.g. datetime.timedelta are not json serializable,
-                # filter those out.
-                if json_serializable(val):
-                    serializable_flags[key] = val
-            json.dump(serializable_flags, f)
-
-    # Export as SavedModel for finetuning and inference.
-    save(model, global_step=result['global_step'])
-
-    return result
+    if FLAGS.lineareval_while_pretraining:
+        # Export as SavedModel for finetuning and inference.
+        save(model, global_step=result['global_step'])
+        return result
 
 
 def _restore_latest_or_from_pretrain(checkpoint_manager):
@@ -624,9 +627,13 @@ def main(argv):
                 FLAGS.model_dir + '_' + FLAGS.run_id, min_interval_secs=15):
             result = perform_evaluation(model, builder, eval_steps, ckpt, strategy,
                                         topology, epoch_steps)
-            if result['global_step'] >= train_steps:
+            if FLAGS.lineareval_while_pretraining and result['global_step'] >= train_steps:
                 logging.info('Eval complete. Exiting...')
                 return
+            elif FLAGS.eval_mahal:
+                logging.info('Mahalanobis Outlier Detector complete. Exiting...')
+                return
+
     else:
         summary_writer = tf.summary.create_file_writer(FLAGS.model_dir + '_' + FLAGS.run_id)
         with strategy.scope():

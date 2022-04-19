@@ -272,7 +272,7 @@ class Model(tf.keras.models.Model):
       # no matter lineareval_while_pretraining == True / False
       supervised_head_outputs = self.supervised_head(supervised_head_inputs,
                                                      training)
-      return None, supervised_head_outputs
+      return None, supervised_head_outputs, embedding
     elif FLAGS.train_mode == 'pretrain' and FLAGS.lineareval_while_pretraining:
       # When performing pretraining and linear evaluation together we do not
       # want information from linear eval flowing back into pretraining network

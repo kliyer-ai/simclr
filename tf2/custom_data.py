@@ -51,6 +51,7 @@ class StandardBuilder():
             train_df = data_frame[neg_mask]
             train_df = train_df.sample(frac=1-self.test_perc)
             test_df = data_frame.drop(index=train_df.index)
+            test_df = test_df.sample(frac=1.0)
             return (train_df, test_df)
 
         assert self.anomaly_perc > 0.0
@@ -170,7 +171,11 @@ class MVTechBuilder(StandardBuilder):
         `tf.data.Dataset`s.
     """
 
-    def __init__(self, dataset, data_dir, *args, **kwargs):
+    def __init__(self, dataset, data_dir,
+                 load_existing_split=False,
+                 results_dir=None,
+                 **kwargs):
+
         super().__init__(**kwargs)
         logging.info(kwargs)
         self.dataset = dataset
@@ -178,6 +183,12 @@ class MVTechBuilder(StandardBuilder):
             self.path = [os.path.join(data_dir, cat) for cat in kwargs["categories"]]
         else:
             self.path = [os.path.join(data_dir, '*')]
+
+        self.load_existing_split = load_existing_split
+        self.results_dir = results_dir
+
+        if not os.path.exists(self.results_dir):
+            os.mkdir(self.results_dir)
 
     def download_and_prepare(self):
         self._load_mvtech_dataset()
@@ -223,22 +234,39 @@ class MVTechBuilder(StandardBuilder):
         return dataset.map(process, num_parallel_calls=AUTOTUNE)
 
     def _load_mvtech_dataset(self):
-        neg_files = []
-        pos_files = []
-        for path_cat in self.path:
-            neg_files += glob(os.path.join(path_cat, 'train', 'good', '*.png'))
-            neg_files += glob(os.path.join(path_cat, 'test', 'good', '*.png'))
-            pos_files += glob(os.path.join(path_cat, 'test', '*', '*.png'))
-            pos_files = [p for p in pos_files if 'good' not in p] #exclude all anomalies
+        if not self.load_existing_split:
+            neg_files = []
+            pos_files = []
+            for path_cat in self.path:
+                neg_files += glob(os.path.join(path_cat, 'train', 'good', '*.png'))
+                neg_files += glob(os.path.join(path_cat, 'test', 'good', '*.png'))
+                pos_files += glob(os.path.join(path_cat, 'test', '*', '*.png'))
+                pos_files = [p for p in pos_files if 'good' not in p] #exclude all anomalies
 
-        neg_df = pd.DataFrame(data={'lbl': ['IO'] * len(neg_files)}, index=neg_files)
-        pos_df = pd.DataFrame(data={'lbl': ['NIO'] * len(pos_files)}, index=pos_files)
+            neg_df = pd.DataFrame(data={'lbl': ['IO'] * len(neg_files)}, index=neg_files)
+            pos_df = pd.DataFrame(data={'lbl': ['NIO'] * len(pos_files)}, index=pos_files)
 
-        df = pd.concat([neg_df, pos_df])
-        neg_mask = df.lbl.values == 'IO'
-        pos_mask = df.lbl.values == 'NIO'
+            df = pd.concat([neg_df, pos_df])
+            # df.reset_index(inplace=True)
+            #
+            neg_mask = df.lbl.values == 'IO'
+            pos_mask = df.lbl.values == 'NIO'
 
-        train_df, test_df = self.split_data(df, neg_mask, pos_mask)
+            train_df, test_df = self.split_data(df, neg_mask, pos_mask)
+
+            if self.train_mode == 'finetune':
+                if os.path.isfile(os.path.join(self.results_dir, "split.pkl")):
+                    logging.warn("finetune mode and existing split detected. Change your run_id! Stopping")
+                    sys.exit("Change your run_id!")
+
+            with open(os.path.join(self.results_dir, "split.pkl"), "wb") as f:
+                pickle.dump((train_df, test_df), f)
+        else:
+            if self.train_mode == 'finetune':
+                logging.warn("finetune mode detected. existing split will be loaded. make sure this is what you want!")
+            logging.info("loading existing split from {}".format(os.path.join(self.results_dir, "split.pkl")))
+            with open(os.path.join(self.results_dir, "split.pkl"), "rb") as f:
+                (train_df, test_df) = pickle.load(f)
 
         self.train_df = train_df
         self.test_df = test_df

@@ -123,7 +123,7 @@ def build_mahal_fn(builder, global_batch_size, topology, is_training):
         batch_size = input_context.get_per_replica_batch_size(global_batch_size)
         logging.info('Global batch size: %d', global_batch_size)
         logging.info('Per-replica batch size: %d', batch_size)
-        preprocess_fn = get_preprocess_fn(is_training=False, is_pretrain=False)
+        preprocess_fn = get_preprocess_fn_mahal()
         num_classes = builder.info.features['label'].num_classes
         logging.info('num classes: %d', num_classes)
 
@@ -190,3 +190,11 @@ def get_preprocess_fn(is_training, is_pretrain):
         is_training=is_training,
         color_distort=is_pretrain,
         test_crop=test_crop)
+
+
+def get_preprocess_fn_mahal():
+    """Get function that accepts an image and returns a preprocessed image."""
+    return functools.partial(
+        data_util.preprocess_image_mahal,
+        height=FLAGS.image_size[0],
+        width=FLAGS.image_size[1])
